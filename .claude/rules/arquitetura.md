@@ -67,6 +67,7 @@ def register(mcp: MCPServer[None], runtime: Runtime) -> None:
 ```
 
 4. Adicionar a chamada `nome.register(mcp, runtime)` no `__init__.py` do domínio.
+5. Conferir o `.mcp.json` na raiz (ver seção "Registro no Claude Code" no `CLAUDE.md`).
 
 ## Tool com operação longa
 
@@ -104,7 +105,7 @@ Tipo de retorno: `Result | JobSubmitted` na função pura, `Result | JobSubmitte
 
 1. Criar `domains/<nome>/__init__.py` com `register(mcp, runtime)`.
 2. Adicionar o nome em `DomainName` no `config.py`.
-3. Adicionar em `MCP_DOMAINS` no `.env.example`.
+3. Adicionar em `MCP_DOMAINS` no `.env.example` e no `env` do `.mcp.json`.
 4. Criar `tests/domains/<nome>/__init__.py`.
 
 ## Testes
