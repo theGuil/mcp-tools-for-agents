@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal, Protocol, Self, TypedDict, cast
@@ -109,14 +110,19 @@ class YouTube:
     timeout_seconds: float = 900.0
 
     def _base_params(self) -> dict[str, object]:
-        return {
+        params: dict[str, object] = {
             "quiet": True,
             "no_warnings": True,
             "noprogress": True,
             "socket_timeout": min(self.timeout_seconds, 60.0),
-            "ffmpeg_location": self.ffmpeg_bin,
             "noplaylist": True,
         }
+        # O yt-dlp exige um caminho real em ffmpeg_location. Um nome nu como
+        # "ffmpeg" é tratado como inexistente e o merge de vídeo+áudio falha.
+        ffmpeg = shutil.which(self.ffmpeg_bin)
+        if ffmpeg is not None:
+            params["ffmpeg_location"] = ffmpeg
+        return params
 
     def info(self, url: str) -> VideoInfo:
         """Lê metadados do vídeo sem baixar.

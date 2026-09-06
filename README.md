@@ -70,6 +70,7 @@ e veja acontecer.
 | video | `add_narration` | Mistura um áudio de narração no vídeo |
 | video | `list_templates` | Lista os templates visuais disponíveis |
 | video | `apply_template` | Shorts 9:16, quadrado, 16:9, título de abertura, marca d'água |
+| video | `add_banner` | Faixa com fundo colorido e texto no topo ou rodapé, o tempo todo ou num intervalo |
 | audio | `extract_audio` | Separa a trilha de áudio |
 | audio | `transcribe_audio` | Transcreve fala com timestamps (extra `transcribe`) |
 | youtube | `get_youtube_info` | Título, duração, descrição e capítulos, sem baixar |

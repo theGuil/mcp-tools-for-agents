@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from domains.video import (
+    banner,
     burn_subtitles,
     concat,
     cut,
@@ -37,3 +38,4 @@ def register(mcp: MCPServer[None], runtime: Runtime) -> None:
     metadata.register(mcp, runtime)
     narration.register(mcp, runtime)
     template.register(mcp, runtime)
+    banner.register(mcp, runtime)

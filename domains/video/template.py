@@ -104,7 +104,7 @@ def list_templates(runtime: Runtime) -> ListTemplatesResult:
 
 def _title_filter(title: str, font: Path, *, font_size: int, y: str, enable: str | None) -> str:
     expr = (
-        f"drawtext=fontfile='{escape_filter_path(font)}':text='{escape_drawtext(title)}'"
+        f"drawtext=fontfile='{escape_filter_path(font)}':text={escape_drawtext(title)}"
         f":fontsize={font_size}:fontcolor=white:borderw=3:bordercolor=black@0.8"
         f":x=(w-text_w)/2:y={y}:line_spacing=10"
     )

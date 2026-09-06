@@ -77,7 +77,9 @@ Separe o trabalho em `_do_xxx(runtime, ...)` e ofereça `background: bool = Fals
 @guarded
 def cut_video(runtime, path, start, end, *, reencode=False, background=False):
     if background:
-        return runtime.jobs.submit("cut_video", lambda: _do_cut(runtime, path, start, end, reencode=reencode))
+        return runtime.jobs.submit(
+            "cut_video", lambda: _do_cut(runtime, path, start, end, reencode=reencode)
+        )
     return _do_cut(runtime, path, start, end, reencode=reencode)
 ```
 

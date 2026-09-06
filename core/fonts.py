@@ -25,7 +25,12 @@ _CANDIDATES: Final = (
     "C:/Windows/Fonts/arial.ttf",
 )
 
-_SPECIAL: Final = re.compile(r"([\\'%:;\[\],])")
+# O FFmpeg lê o valor de ``text=`` em três camadas, cada uma removendo um nível de
+# escape: a expansão do próprio drawtext, o parser de opções do filtro e o parser
+# do filtergraph. O texto é escapado de dentro para fora, uma camada por vez.
+_DRAWTEXT_SPECIAL: Final = re.compile(r"([\\%])")
+_OPTION_SPECIAL: Final = re.compile(r"([\\':])")
+_GRAPH_SPECIAL: Final = re.compile(r"([\\'\[\],;])")
 
 
 def find_font() -> Path | None:
@@ -54,8 +59,14 @@ def require_font() -> Path:
 
 
 def escape_drawtext(text: str) -> str:
-    """Escapa um texto para uso dentro do filtro ``drawtext``."""
-    return _SPECIAL.sub(r"\\\1", text)
+    """Escapa um texto para o valor de ``text=`` do filtro ``drawtext``.
+
+    O resultado deve ir direto após ``text=``, sem aspas: envolver em aspas
+    quebra quando o texto contém ``'``. Quebras de linha reais são preservadas.
+    """
+    escaped = _DRAWTEXT_SPECIAL.sub(r"\\\1", text)
+    escaped = _OPTION_SPECIAL.sub(r"\\\1", escaped)
+    return _GRAPH_SPECIAL.sub(r"\\\1", escaped)
 
 
 def escape_filter_path(path: Path) -> str:
