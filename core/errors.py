@@ -22,6 +22,7 @@ type ErrorCode = Literal[
     "job_not_found",
     "job_not_finished",
     "unavailable",
+    "download_failed",
 ]
 
 

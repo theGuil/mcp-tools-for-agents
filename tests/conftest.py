@@ -12,6 +12,7 @@ from config import Settings
 from core.ffmpeg import FFmpeg
 from core.jobs import JobManager
 from core.paths import Workspace
+from core.youtube import YouTube
 from domains import Runtime
 
 SAMPLE_DURATION = 3.0
@@ -46,7 +47,9 @@ def jobs() -> Generator[JobManager]:
 def runtime(workspace: Workspace, jobs: JobManager) -> Runtime:
     """Runtime completo apontando para o workspace temporário."""
     settings = Settings.from_env({"WORKSPACE_DIR": str(workspace.root)})
-    return Runtime(settings=settings, workspace=workspace, ffmpeg=FFmpeg(), jobs=jobs)
+    return Runtime(
+        settings=settings, workspace=workspace, ffmpeg=FFmpeg(), jobs=jobs, youtube=YouTube()
+    )
 
 
 @pytest.fixture

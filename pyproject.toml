@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 license = "MIT"
 dependencies = [
     "mcp>=1.14",
+    "yt-dlp>=2026.8.19",
 ]
 
 [project.optional-dependencies]
@@ -80,3 +81,7 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 addopts = "-q -ra"
 markers = ["ffmpeg: testes que exigem o binário ffmpeg instalado"]
+
+[[tool.mypy.overrides]]
+module = ["yt_dlp", "yt_dlp.*"]
+ignore_missing_imports = true

@@ -12,13 +12,16 @@ from core.errors import ToolError
 from core.ffmpeg import FFmpeg
 from core.jobs import JobManager
 from core.paths import Workspace
+from core.youtube import YouTube
 from domains import Runtime, register_domains
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
 _INSTRUCTIONS = (
-    "Servidor de tools para edição de vídeo e áudio. Todos os caminhos são "
+    "Servidor de tools para edição de vídeo e áudio. Fluxo típico: "
+    "download_youtube_video -> probe_video/extract_frame para assistir -> cut_video -> "
+    "add_text_overlay/burn_subtitles/apply_template -> set_video_metadata. Todos os caminhos são "
     "relativos ao workspace. Comece com list_files e probe_video. Operações "
     "longas aceitam background=true e devolvem job_id; acompanhe com job_status "
     "e busque a saída com job_result. Erros vêm como {error, code, hint}."
@@ -36,6 +39,7 @@ def build_runtime(settings: Settings) -> Runtime:
             timeout_seconds=settings.ffmpeg_timeout,
         ),
         jobs=JobManager(workers=settings.job_workers),
+        youtube=YouTube(ffmpeg_bin=settings.ffmpeg_bin, timeout_seconds=settings.youtube_timeout),
     )
 
 

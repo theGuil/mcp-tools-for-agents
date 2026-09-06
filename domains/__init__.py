@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from core.ffmpeg import FFmpeg
     from core.jobs import JobManager
     from core.paths import Workspace
+    from core.youtube import YouTube
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +32,7 @@ class Runtime:
     workspace: Workspace
     ffmpeg: FFmpeg
     jobs: JobManager
+    youtube: YouTube
 
 
 class DomainModule(Protocol):
