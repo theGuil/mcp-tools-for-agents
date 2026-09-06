@@ -70,7 +70,7 @@ def _do_overlay(
     font = require_font()
     enable = f"between(t\\,{start}\\,{end})" if end is not None else f"gte(t\\,{start})"
     drawtext = (
-        f"drawtext=fontfile='{escape_filter_path(font)}':text='{escape_drawtext(text)}'"
+        f"drawtext=fontfile='{escape_filter_path(font)}':text={escape_drawtext(text)}"
         f":fontsize={font_size}:fontcolor={color}:borderw=3:bordercolor=black@0.8"
         f":x=(w-text_w)/2:y={_POSITIONS[position]}:line_spacing=8:enable='{enable}'"
     )
