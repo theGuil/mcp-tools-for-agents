@@ -63,12 +63,33 @@ e veja acontecer.
 | video | `concat_videos` | Junta vídeos em sequência |
 | video | `detect_scenes` | Encontra mudanças de cena |
 | video | `extract_frame` | Salva um frame como imagem |
+| video | `add_text_overlay` | Escreve título ou descrição sobre a imagem |
+| video | `create_subtitles` | Gera um .srt a partir de trechos com tempos |
+| video | `burn_subtitles` | Grava legendas de um .srt no vídeo |
+| video | `set_video_metadata` | Embute título, descrição e autor no arquivo |
+| video | `add_narration` | Mistura um áudio de narração no vídeo |
+| video | `list_templates` | Lista os templates visuais disponíveis |
+| video | `apply_template` | Shorts 9:16, quadrado, 16:9, título de abertura, marca d'água |
 | audio | `extract_audio` | Separa a trilha de áudio |
 | audio | `transcribe_audio` | Transcreve fala com timestamps (extra `transcribe`) |
+| youtube | `get_youtube_info` | Título, duração, descrição e capítulos, sem baixar |
+| youtube | `download_youtube_video` | Baixa o vídeo (yt-dlp) para o workspace |
 | jobs | `job_status` | Estado de um job em background |
 | jobs | `job_result` | Saída de um job concluído |
 
 Ative só o que precisa com `MCP_DOMAINS=video,files`.
+
+## Fluxo: do link do YouTube ao corte publicado
+
+O agente orquestra, o servidor executa. Um roteiro típico:
+
+1. `get_youtube_info` para ver duração, descrição e capítulos.
+2. `download_youtube_video` (background) e `job_result` para pegar o arquivo.
+3. `transcribe_audio`, `detect_scenes` e `extract_frame` para "assistir" e escolher os trechos.
+4. `cut_video` com os minutos escolhidos.
+5. `create_subtitles` + `burn_subtitles` para legendar, `add_text_overlay` para o título,
+   `add_narration` para a locução, `apply_template` para o formato da rede.
+6. `set_video_metadata` com título e descrição finais.
 
 ## Como é por dentro
 

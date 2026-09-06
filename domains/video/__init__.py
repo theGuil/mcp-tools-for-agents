@@ -1,10 +1,22 @@
-"""Tools de vídeo: inspeção, corte, concatenação, cenas e frames."""
+"""Tools de vídeo: inspeção, corte, concatenação, cenas, frames, texto, legenda e templates."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from domains.video import concat, cut, frame, probe, scenes
+from domains.video import (
+    burn_subtitles,
+    concat,
+    cut,
+    frame,
+    metadata,
+    narration,
+    probe,
+    scenes,
+    subtitles,
+    template,
+    text_overlay,
+)
 
 if TYPE_CHECKING:
     from mcp.server.mcpserver import MCPServer
@@ -19,3 +31,9 @@ def register(mcp: MCPServer[None], runtime: Runtime) -> None:
     concat.register(mcp, runtime)
     scenes.register(mcp, runtime)
     frame.register(mcp, runtime)
+    text_overlay.register(mcp, runtime)
+    subtitles.register(mcp, runtime)
+    burn_subtitles.register(mcp, runtime)
+    metadata.register(mcp, runtime)
+    narration.register(mcp, runtime)
+    template.register(mcp, runtime)
