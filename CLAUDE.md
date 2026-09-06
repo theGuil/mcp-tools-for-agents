@@ -36,6 +36,20 @@ tests/        espelha core/ e domains/
 Regras completas em `.claude/rules/arquitetura.md`. Para criar uma tool nova use a
 skill `/nova-tool`.
 
+## Registro no Claude Code (`.mcp.json`)
+
+O `.mcp.json` na raiz é o que faz o Claude Code subir este servidor ao abrir o projeto.
+As tools são descobertas em tempo de execução pelo `list_tools`, então uma tool nova
+dentro de um domínio existente aparece sozinha. Mesmo assim, **ao criar ou alterar uma
+tool, confira o `.mcp.json`** e atualize-o quando:
+
+- a tool pertence a um **domínio novo**: inclua o nome em `MCP_DOMAINS` no `env`;
+- a tool depende de uma **variável de ambiente nova** lida em `config.py`: adicione no `env`;
+- o **entrypoint** (`mcp-tools` em `pyproject.toml`) ou os argumentos de `uv run` mudarem.
+
+Depois, valide com `/mcp` no Claude Code: o servidor `media` deve aparecer conectado e a
+tool nova deve estar na lista.
+
 ## Comandos
 
 ```bash
