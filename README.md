@@ -1,30 +1,45 @@
 # mcp-tools-for-agents
 
-Servidor MCP em Python puro com tools de edição de vídeo, áudio e arquivos,
-feito para ser operado por um agente de IA no mesmo container, via stdio.
+**Dê mãos ao seu agente de IA.**
 
-## Requisitos
+Um servidor MCP local, em Python puro, que entrega ao seu agente ferramentas reais
+de vídeo, áudio e arquivos. Sem API, sem rede, sem UI. O agente sobe o servidor como
+subprocesso, recebe as tools e trabalha dentro de um workspace isolado.
 
-- Python 3.14 (gerenciado pelo `uv`)
-- FFmpeg e FFprobe no PATH
+Funciona com Claude Code, Claude Desktop, Cursor e qualquer host MCP.
 
-## Rodar
+## Por que esse projeto existe
+
+Modelos são bons em decidir. São péssimos em executar `ffmpeg` na mão.
+Este projeto fecha esse buraco com tools desenhadas **para o modelo ler**:
+
+- **Erro que ensina.** Toda falha volta como `{"error", "code", "hint"}`. O `hint` diz
+  ao agente o que fazer a seguir. Ele se corrige sozinho.
+- **Workspace como fronteira.** Nada fora de `WORKSPACE_DIR` é lido ou escrito.
+  Nem com `..`, nem com caminho absoluto.
+- **Operação longa não trava.** Passe `background=true`, receba um `job_id`, acompanhe
+  com `job_status`, busque com `job_result`.
+- **Resposta sempre tipada.** Cada tool devolve um `TypedDict`. Zero surpresa.
+- **Um arquivo por tool.** Abriu o arquivo, entendeu a tool. Criar uma nova leva minutos.
+
+## Em 60 segundos
 
 ```bash
-uv sync                      # instala dependências
-cp .env.example .env         # ajuste WORKSPACE_DIR e afins
-uv run mcp-tools             # sobe o servidor via stdio
+git clone https://github.com/theguil/mcp-tools-for-agents
+cd mcp-tools-for-agents
+uv sync
+cp .env.example .env      # ajuste WORKSPACE_DIR
+uv run mcp-tools          # servidor no ar, via stdio
 ```
 
-## Plugar no agente
+Requisitos: Python 3.14 (o `uv` instala), FFmpeg e FFprobe no PATH.
 
-Qualquer host MCP (Claude Code, Claude Desktop, Cursor ou um agente próprio)
-sobe o servidor como subprocesso:
+## Plugar no agente
 
 ```json
 {
   "mcpServers": {
-    "video": {
+    "media": {
       "command": "uv",
       "args": ["run", "--directory", "/caminho/mcp-tools-for-agents", "mcp-tools"],
       "env": { "WORKSPACE_DIR": "/dados/videos" }
@@ -32,6 +47,10 @@ sobe o servidor como subprocesso:
   }
 }
 ```
+
+Cole isso no `.mcp.json` (Claude Code), no `claude_desktop_config.json` (Claude Desktop)
+ou no equivalente do seu host. Pronto: peça "corta os 10 primeiros segundos do intro.mp4"
+e veja acontecer.
 
 ## Tools
 
@@ -49,24 +68,60 @@ sobe o servidor como subprocesso:
 | jobs | `job_status` | Estado de um job em background |
 | jobs | `job_result` | Saída de um job concluído |
 
-Toda tool devolve um dicionário tipado. Em erro, o formato é sempre
-`{"error", "code", "hint"}`. Operações longas aceitam `background=true`
-e devolvem um `job_id`.
+Ative só o que precisa com `MCP_DOMAINS=video,files`.
 
-## Estrutura
+## Como é por dentro
 
 ```
 server.py     cria o MCPServer e registra os domínios
-config.py     lê variáveis de ambiente
+config.py     único lugar que lê variáveis de ambiente
 core/         ffmpeg, paths, jobs, errors. Não conhece MCP.
 domains/      um pacote por área, um arquivo por tool
 tests/        espelha a estrutura acima
 ```
 
-## Qualidade
+Uma tool inteira, do jeito que todas são:
+
+```python
+@guarded
+def delete_file(runtime: Runtime, path: str) -> DeleteFileResult:
+    target = runtime.workspace.existing(path)
+    size = target.stat().st_size
+    target.unlink()
+    return DeleteFileResult(deleted=runtime.workspace.relative(target), freed_bytes=size)
+
+
+def register(mcp: MCPServer[None], runtime: Runtime) -> None:
+    @mcp.tool(name="delete_file")
+    def _tool(path: str) -> DeleteFileResult | ErrorPayload:
+        """Apaga permanentemente um arquivo do workspace.
+
+        Args:
+            path: Arquivo, relativo ao workspace.
+        """
+        return delete_file(runtime, path)
+```
+
+Função pura e testável em cima, registro com docstring para o agente embaixo.
+É só isso.
+
+## Contribuir
+
+Quer uma tool nova? Copie `domains/files/delete.py`, troque o miolo, escreva o teste
+espelhado em `tests/`, adicione a linha na tabela acima. As regras completas estão em
+`.claude/rules/arquitetura.md`, e se você usa Claude Code, `/nova-tool` faz o roteiro.
+
+Antes do PR, os três precisam passar:
 
 ```bash
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run pytest
 ```
+
+Ruff em `ALL`, mypy em `strict`. Rígido de propósito: é o que mantém cada tool
+pequena, previsível e fácil de confiar.
+
+## Licença
+
+MIT.
