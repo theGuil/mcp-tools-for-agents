@@ -47,7 +47,7 @@ fn do_detect(runtime: &Runtime, path: &str, threshold: f64) -> ToolResult<Detect
     }
     let source = runtime.workspace.existing(path)?;
     let info = runtime.ffmpeg.probe(&source)?;
-    let stderr = runtime.ffmpeg.run(&ffargs![
+    let stderr = runtime.ffmpeg.run(ffargs![
         "-i",
         source,
         "-vf",

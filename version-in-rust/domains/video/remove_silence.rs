@@ -1,6 +1,5 @@
 //! Tool `remove_silence`: corta os trechos em que ninguém fala.
 
-use std::io::Write;
 use std::sync::{Arc, OnceLock};
 
 use regex::Regex;
@@ -161,13 +160,6 @@ fn filter_script(segments: &[Segment], has_video: bool) -> String {
     lines.join("\n")
 }
 
-fn io_error(error: &std::io::Error) -> ToolError {
-    ToolError::new(
-        format!("Não foi possível criar o arquivo temporário: {error}"),
-        ErrorCode::FfmpegFailed,
-    )
-}
-
 fn do_remove(
     runtime: &Runtime,
     path: &str,
@@ -187,7 +179,7 @@ fn do_remove(
     }
     let duration = info.duration;
 
-    let stderr = runtime.ffmpeg.run(&ffargs![
+    let stderr = runtime.ffmpeg.run(ffargs![
         "-i",
         source,
         "-af",
@@ -208,15 +200,14 @@ fn do_remove(
     }
 
     let output = runtime.workspace.output_for(&source, "nosilence", None);
-    let mut script = tempfile::Builder::new()
-        .suffix(".txt")
-        .tempfile()
-        .map_err(|e| io_error(&e))?;
-    script
-        .write_all(filter_script(&segments, info.has_video).as_bytes())
-        .map_err(|e| io_error(&e))?;
-    script.flush().map_err(|e| io_error(&e))?;
-    let mut args = ffargs!["-i", source, "-filter_complex_script", script.path()];
+    // O ffmpeg 8 removeu `-filter_complex_script`, então o mesmo script vai
+    // inline: o parser de filtergraph ignora as quebras de linha.
+    let mut args = ffargs![
+        "-i",
+        source,
+        "-filter_complex",
+        filter_script(&segments, info.has_video)
+    ];
     if info.has_video {
         args.extend(ffargs![
             "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-c:a", "aac"

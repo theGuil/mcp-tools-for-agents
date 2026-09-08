@@ -216,7 +216,7 @@ fn validate(
             "Use list_templates para ver os nomes válidos.",
         ));
     };
-    if spec.requires_title && !title.is_some_and(|t| !t.trim().is_empty()) {
+    if spec.requires_title && title.is_none_or(|t| t.trim().is_empty()) {
         return Err(ToolError::with_hint(
             format!("Template '{}' exige title.", template.as_str()),
             ErrorCode::InvalidArgument,
@@ -230,7 +230,7 @@ fn validate(
             "Encurte o título ou use add_text_overlay para textos longos.",
         ));
     }
-    if spec.requires_logo && !logo_path.is_some_and(|p| !p.is_empty()) {
+    if spec.requires_logo && logo_path.is_none_or(str::is_empty) {
         return Err(ToolError::with_hint(
             format!("Template '{}' exige logo_path.", template.as_str()),
             ErrorCode::InvalidArgument,
