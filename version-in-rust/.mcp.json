@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "mcp-tools-for-agents": {
+      "command": "./target/release/mcp-tools",
+      "args": [],
+      "env": {
+        "WORKSPACE_DIR": "./workspace",
+        "MCP_DOMAINS": "video,audio,files,jobs,media",
+        "MCP_AUTO_DOWNLOAD": "true",
+        "FREESOUND_API_KEY": ""
+      }
+    }
+  }
+}

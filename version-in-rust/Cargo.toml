@@ -1,0 +1,64 @@
+[package]
+name = "mcp-tools-for-agents"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Servidor MCP em Rust, binário único e portátil, com tools de vídeo, áudio e arquivos para agentes de IA."
+license = "MIT"
+readme = "README.md"
+publish = false
+
+# A árvore espelha a versão Python: server.rs, config.rs, core/, domains/ e tests/
+# ficam na raiz do projeto, não em src/. lib.rs declara os módulos e main.rs é o
+# equivalente do __main__.py.
+[lib]
+name = "mcp_tools"
+path = "lib.rs"
+
+[[bin]]
+name = "mcp-tools"
+path = "main.rs"
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
+
+[features]
+default = []
+# Extras opcionais, espelhando os extras do pyproject.toml.
+transcribe = ["dep:whisper-rs"]
+vision = ["dep:tract-onnx", "dep:image"]
+full = ["transcribe", "vision"]
+
+[dependencies]
+# SDK oficial do MCP em Rust: transporte stdio e roteamento de tools.
+rmcp = { version = "0.8", features = ["server", "transport-io"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Gera o JSON Schema dos parâmetros de cada tool a partir das structs.
+schemars = "1"
+regex = "1"
+# HTTP com rustls embutido: nada de OpenSSL do sistema.
+ureq = { version = "3", features = ["json", "platform-verifier"] }
+uuid = { version = "1", features = ["v4"] }
+# Pastas e arquivos temporários (frames de análise, arquivos de comando do ffmpeg).
+tempfile = "3"
+# Descompactação dos pacotes de ffmpeg baixados sob demanda (tar.xz no Linux, zip no resto).
+tar = "0.4"
+lzma-rs = "0.3"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+# Extras opcionais.
+whisper-rs = { version = "0.15", optional = true }
+tract-onnx = { version = "0.21", optional = true }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"], optional = true }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "unwind"
