@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime};
 
 use mcp_tools::core::downloader::{
     final_path, hint_for, http_only, parse_info, safe_title, validate_url, worth_generic_retry,
-    Downloader, YtdlRequest,
+    Downloader, PageFetcher, YtdlRequest,
 };
 use mcp_tools::core::errors::ErrorCode;
 use serde_json::{json, Value};
@@ -99,7 +99,7 @@ impl Paginas {
         }
     }
 
-    fn fetcher(&self) -> Arc<dyn Fn(&str, f64) -> Option<String> + Send + Sync> {
+    fn fetcher(&self) -> PageFetcher {
         let mapa = self.mapa.clone();
         let buscadas = Arc::clone(&self.buscadas);
         Arc::new(move |url: &str, _timeout: f64| {

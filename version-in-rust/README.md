@@ -51,7 +51,8 @@ cargo build --release                   # binário leve, sem os extras
 
 Requisitos de build: Rust estável (1.85+); com `--features full`, também `cmake`
 e um compilador C++ (o whisper.cpp é compilado e linkado estaticamente). O
-executável fica em `target/release/mcp-tools`.
+executável fica em `target/release/mcp-tools` (~24 MB). No Linux ele depende só
+da glibc e da libstdc++ do sistema, presentes em qualquer distribuição.
 
 ## Plugar no agente
 
