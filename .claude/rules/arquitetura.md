@@ -1,140 +1,165 @@
-# Arquitetura do projeto
+# Arquitetura do projeto (versão Rust)
 
 Siga exatamente esta estrutura. Não invente camadas, não mova responsabilidades.
+A árvore fica na raiz do crate:
+`server.rs`, `config.rs`, `core/`, `domains/`, `tests/` (o `Cargo.toml` aponta
+`lib.rs` e `main.rs` para cá em vez de `src/`).
 
 ## Camadas e o que cada uma pode fazer
 
 | Camada | Responsabilidade | Pode importar | NÃO pode |
 |---|---|---|---|
-| `config.py` | Ler `os.environ` e montar `Settings` | `core.errors` | Ser lido por ninguém além de `server.py` e testes |
-| `core/` | ffmpeg, paths, jobs, errors | só `core` | Importar `mcp`, `config` ou `domains` |
-| `domains/<area>/<tool>.py` | Uma tool: valida, chama `core`, devolve TypedDict | `core`, `domains.Runtime` | Importar outro domínio, ler `os.environ`, chamar `subprocess` |
-| `domains/<area>/__init__.py` | `register(mcp, runtime)` chamando o `register` de cada tool | os arquivos do próprio domínio | Ter lógica |
-| `server.py` | Montar `Runtime` e registrar domínios | tudo | Ter lógica de tool |
+| `config.rs` | Ler `std::env` e montar `Settings` | `core::errors` | Ser lido por ninguém além de `server.rs`, `domains/mod.rs` (tipo `Runtime`) e testes |
+| `core/` | ffmpeg, paths, jobs, errors, binários externos, rede | só `core` | Importar `rmcp`, `config` ou `domains` |
+| `domains/<area>/<tool>.rs` | Uma tool: valida, chama `core`, devolve struct `Serialize` | `core`, `domains::{McpServer, Runtime}` | Importar outro domínio, ler `std::env`, chamar `std::process` |
+| `domains/<area>/mod.rs` | `register(mcp, runtime)` chamando o `register` de cada tool | os arquivos do próprio domínio | Ter lógica |
+| `domains/mod.rs` | `Runtime`, `McpServer` (fachada do `rmcp`) e `register_domains` | tudo | Ter lógica de tool |
+| `server.rs` | Montar `Runtime`, implementar `ServerHandler` e subir o stdio | tudo | Ter lógica de tool |
 | `tests/` | Espelhar `core/` e `domains/` | tudo | — |
 
 Se algo é comum a dois domínios, vai para `core/`. Nunca um domínio importa o outro.
+Só `core/process.rs` chama `std::process`; só `core/http.rs` cria cliente HTTP.
 
 ## Anatomia obrigatória de uma tool
 
-Um arquivo por tool em `domains/<area>/<nome>.py`. Sempre estas quatro partes, nesta ordem:
+Um arquivo por tool em `domains/<area>/<nome>.rs`. Sempre estas quatro partes, nesta ordem:
 
-```python
-"""Tool ``nome_da_tool``: uma frase do que faz."""
+```rust
+//! Tool `nome_da_tool`: uma frase do que faz.
 
-from __future__ import annotations
+use std::sync::Arc;
 
-from typing import TYPE_CHECKING, TypedDict
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
-from core.errors import ErrorPayload, ToolError, guarded
+use crate::core::errors::{guarded, ErrorCode, ToolError, ToolResult};
+use crate::domains::{McpServer, Runtime};
 
-if TYPE_CHECKING:
-    from mcp.server.mcpserver import MCPServer
+// 1. Resultado tipado
+/// Uma frase.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct NomeDaToolResult {
+    pub output: String,
+}
 
-    from domains import Runtime
+// 2. Implementação pura, recebe &Runtime, devolve ToolResult (o guarded
+//    é o `Result`: Err(ToolError) vira ErrorPayload no registro)
+/// Implementação pura, testável sem MCP.
+pub fn nome_da_tool(runtime: &Runtime, path: &str) -> ToolResult<NomeDaToolResult> {
+    let source = runtime.workspace.existing(path)?;
+    // ...
+    Ok(NomeDaToolResult { output: runtime.workspace.relative(&target) })
+}
 
+// 3. Parâmetros: os `///` de cada campo são o "Args:" da docstring, o agente lê
+/// Parâmetros da tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct Params {
+    /// Arquivo, relativo ao workspace.
+    pub path: String,
+}
 
-# 1. Resultado tipado
-class NomeDaToolResult(TypedDict):
-    """Uma frase."""
-
-    output: str
-
-
-# 2. Implementação pura, decorada com @guarded, recebe Runtime como 1º argumento
-@guarded
-def nome_da_tool(runtime: Runtime, path: str) -> NomeDaToolResult:
-    """Implementação pura, testável sem MCP."""
-    source = runtime.workspace.existing(path)
-    ...
-    return NomeDaToolResult(output=runtime.workspace.relative(target))
-
-
-# 3. register expõe no servidor. A docstring de _tool é o que o agente lê.
-def register(mcp: MCPServer[None], runtime: Runtime) -> None:
-    """Expõe a tool no servidor."""
-
-    @mcp.tool(name="nome_da_tool")
-    def _tool(path: str) -> NomeDaToolResult | ErrorPayload:
-        """O que faz, em uma frase, para o agente.
-
-        Quando usar, o que acontece com o original, o que devolve.
-
-        Args:
-            path: Arquivo, relativo ao workspace.
-        """
-        return nome_da_tool(runtime, path)
+// 4. register expõe no servidor. A description é o que o agente lê.
+/// Expõe a tool no servidor.
+pub fn register(mcp: &mut McpServer, runtime: &Arc<Runtime>) {
+    let runtime = Arc::clone(runtime);
+    mcp.tool(
+        "nome_da_tool",
+        "O que faz, em uma frase, para o agente.\n\n\
+         Quando usar, o que acontece com o original, o que devolve.",
+        move |params: Params| guarded(nome_da_tool(&runtime, &params.path)),
+    );
+}
 ```
 
-4. Adicionar a chamada `nome.register(mcp, runtime)` no `__init__.py` do domínio.
-5. Conferir o `.mcp.json` na raiz (ver seção "Registro no Claude Code" no `CLAUDE.md`).
+5. Adicionar `pub mod nome;` e a chamada `nome::register(mcp, runtime)` no `mod.rs` do domínio.
+6. Conferir o `.mcp.json` na raiz (ver seção "Registro no Claude Code" no `CLAUDE.md`).
+
+Parâmetros opcionais levam `#[serde(default)]` (ou `#[serde(default = "fn")]` para
+valores não nulos). Enumerações de texto (`"9:16" | "1:1"`) viram `enum` com
+`#[serde(rename_all = ...)]` ou `#[serde(rename = "...")]` e `JsonSchema`.
 
 ## Tool com operação longa
 
-Separe o trabalho em `_do_xxx(runtime, ...)` e ofereça `background: bool = False`:
+Separe o trabalho em `do_xxx(runtime, ...)` e ofereça `background: bool`. A
+função pura recebe `&Arc<Runtime>` (o job precisa de uma cópia) e devolve
+`ToolResult<MaybeJob<Result>>`:
 
-```python
-@guarded
-def cut_video(runtime, path, start, end, *, reencode=False, background=False):
-    if background:
-        return runtime.jobs.submit(
-            "cut_video", lambda: _do_cut(runtime, path, start, end, reencode=reencode)
-        )
-    return _do_cut(runtime, path, start, end, reencode=reencode)
+```rust
+pub fn cut_video(runtime: &Arc<Runtime>, path: &str, start: f64, end: f64, reencode: bool, background: bool)
+    -> ToolResult<MaybeJob<CutVideoResult>> {
+    if background {
+        let runtime_job = Arc::clone(runtime);
+        let path = path.to_string();
+        return Ok(MaybeJob::Job(runtime.jobs.submit("cut_video", move || {
+            do_cut(&runtime_job, &path, start, end, reencode)
+        })));
+    }
+    Ok(MaybeJob::Done(do_cut(runtime, path, start, end, reencode)?))
+}
 ```
 
-Tipo de retorno: `Result | JobSubmitted` na função pura, `Result | JobSubmitted | ErrorPayload` na `_tool`.
+`MaybeJob` serializa sem envelope: o agente recebe o resultado ou `{job_id, status, tool}`.
 
 ## Erros
 
-- Falha esperada (arquivo não existe, argumento inválido, ffmpeg falhou): `raise ToolError(msg, code=..., hint=...)`.
-- Códigos existem em `core/errors.py` (`ErrorCode`). Só crie um novo se nenhum servir.
+- Falha esperada (arquivo não existe, argumento inválido, ffmpeg falhou):
+  `return Err(ToolError::with_hint(msg, ErrorCode::X, hint))` ou `ToolError::new(msg, code)`.
+- Códigos existem em `core/errors.rs` (`ErrorCode`). Só crie um novo se nenhum servir.
 - `hint` sempre diz o que o agente deve fazer a seguir. Ex: "Use probe_video para conferir a duração."
-- Qualquer outra exceção é bug e deve subir. Nunca `except Exception` em tool.
+- Qualquer outra falha é bug: nunca `unwrap()`/`expect()` em tool; propague com `?` ou converta em `ToolError`.
 
 ## Caminhos
 
-- Entrada do agente: `runtime.workspace.existing(path)` (precisa existir) ou `.resolve(path)` (pode não existir).
-- Saída ao lado do original: `runtime.workspace.output_for(source, "tag", extension)`.
-- Devolver ao agente: sempre `runtime.workspace.relative(path)`, nunca caminho absoluto.
+- Entrada do agente: `runtime.workspace.existing(path)?` (precisa existir) ou `.resolve(path)?` (pode não existir).
+- Saída ao lado do original: `runtime.workspace.output_for(&source, "tag", None)` (ou `Some("png")`).
+- Devolver ao agente: sempre `runtime.workspace.relative(&path)`, nunca caminho absoluto.
 
 ## FFmpeg
 
-- Só `core/ffmpeg.py` chama `subprocess`. Tool usa `runtime.ffmpeg.run([...])` e `runtime.ffmpeg.probe(path)`.
-- Sem `shell=True`, sem montar string de comando.
+- Só `core/ffmpeg.rs` monta a chamada. Tool usa `runtime.ffmpeg.run(args)?` e `runtime.ffmpeg.probe(&path)?`.
+- Monte os argumentos com o macro `ffargs![...]` (aceita `&str`, `String`, `&Path`, `PathBuf`).
+- Números em filtros e nomes: `core::numbers::format_g` formata sem zeros à direita; `round_to(x, 3)` faz o `round(x, 3)`.
+- Texto em `drawtext`: `core::fonts::{require_font, escape_drawtext, escape_filter_path}`.
+
+## Binários externos e portabilidade
+
+`core/binaries.rs` localiza ffmpeg, ffprobe e yt-dlp (variável de ambiente,
+pasta do executável, PATH, cache) e baixa sob demanda quando `MCP_AUTO_DOWNLOAD`
+permite. Tool nunca procura binário: chama `runtime.ffmpeg` e `runtime.downloader`.
+A fonte DejaVu e o modelo YuNet vêm embutidos no binário (`include_bytes!`).
 
 ## Domínio novo
 
-1. Criar `domains/<nome>/__init__.py` com `register(mcp, runtime)`.
-2. Adicionar o nome em `DomainName` no `config.py`.
+1. Criar `domains/<nome>/mod.rs` com `register(mcp, runtime)` e `pub mod <nome>;` em `domains/mod.rs`.
+2. Adicionar a variante em `DomainName` no `config.rs` (e em `ALL_DOMAINS` e no `match` de `register_domains`).
 3. Adicionar em `MCP_DOMAINS` no `.env.example` e no `env` do `.mcp.json`.
-4. Criar `tests/domains/<nome>/__init__.py`.
+4. Criar `tests/domains/<nome>/mod.rs` e declarar em `tests/domains/mod.rs`.
 
 ## Testes
 
-- Espelho: `domains/video/cut.py` → `tests/domains/video/test_cut.py`.
-- Testar a função pura (`cut_video(runtime, ...)`), nunca a `_tool`.
-- Fixtures em `tests/conftest.py`: `runtime`, `workspace`, `jobs`, `sample_video`.
-- `unwrap` e `unwrap_job` em `tests/helpers.py` para estreitar o tipo de retorno.
-- Teste que precisa de ffmpeg leva `pytestmark = pytest.mark.ffmpeg`.
+- Espelho: `domains/video/cut.rs` → `tests/domains/video/test_cut.rs`, declarado em `tests/domains/video/mod.rs`.
+- Testar a função pura (`cut_video(&rt.runtime, ...)`), nunca o `register`.
+- Fixtures em `tests/conftest.rs`: `runtime()`, `workspace()`, `jobs()`, `sample_video(&workspace)`.
+- `unwrap` e `unwrap_job` em `tests/helpers.rs` para estreitar `MaybeJob`.
+- Teste que precisa de ffmpeg começa com `skip_without_ffmpeg!();`.
 - Sempre cobrir: caminho feliz, argumento inválido, arquivo inexistente.
+- Erros: `let err = f(...).unwrap_err(); assert_eq!(err.code, ErrorCode::InvalidArgument);`.
 
 ## Qualidade
 
 Antes de commitar, os três precisam passar:
 
 ```bash
-uv run ruff check . && uv run ruff format --check .
-uv run mypy
-uv run pytest
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test
 ```
 
-Ruff está em `select = ["ALL"]` e mypy em `strict`. Não adicione `# noqa` nem `# type: ignore` sem código de erro e sem motivo.
+Não adicione `#[allow(...)]` sem motivo em comentário.
 
 ## Convenções
 
-- `from __future__ import annotations` em todo arquivo.
-- Imports que só servem para tipo vão dentro de `if TYPE_CHECKING:`.
-- Docstrings em português, estilo Google.
+- Docs (`//!` e `///`) em português, estilo do projeto (frase curta, o que faz, quando usar).
 - Nomes de tool em `snake_case`, verbo primeiro: `cut_video`, `extract_audio`, `list_files`.
 - Ao criar tool, atualizar a tabela de tools no `README.md`.

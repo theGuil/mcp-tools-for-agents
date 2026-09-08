@@ -1,11 +1,12 @@
 {
   "mcpServers": {
     "mcp-tools-for-agents": {
-      "command": "uv",
-      "args": ["run", "--directory", ".", "mcp-tools"],
+      "command": "./bin/mcp-tools",
+      "args": [],
       "env": {
         "WORKSPACE_DIR": "./workspace",
         "MCP_DOMAINS": "video,audio,files,jobs,media",
+        "MCP_AUTO_DOWNLOAD": "true",
         "FREESOUND_API_KEY": ""
       }
     }
