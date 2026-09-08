@@ -73,7 +73,7 @@ segundos do intro.mp4" e veja acontecer.
 Abrindo este repositório no Claude Code nada precisa ser compilado: o hook
 `SessionStart` em `.claude/settings.json` roda `scripts/install-mcp-tools.sh`,
 que baixa o `mcp-tools` da **última release** para `bin/` (pasta ignorada pelo
-git), e o `.mcp.json` já aponta para `./bin/mcp-tools`. Para atualizar à mão ou
+git), e o `.mcp.json` sobe o servidor por `scripts/mcp-tools-run.sh`, que espera esse download terminar (ou baixa sozinho) antes de executar `bin/mcp-tools`. Para atualizar à mão ou
 fixar uma versão:
 
 ```bash

@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "mcp-tools-for-agents": {
-      "command": "./bin/mcp-tools",
-      "args": [],
+      "command": "sh",
+      "args": ["./scripts/mcp-tools-run.sh"],
       "env": {
         "WORKSPACE_DIR": "./workspace",
         "MCP_DOMAINS": "video,audio,files,jobs,media",
