@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 from mcp.server.mcpserver import MCPServer
 
 from config import Settings
+from core.downloader import Downloader
 from core.errors import ToolError
 from core.ffmpeg import FFmpeg
 from core.jobs import JobManager
 from core.paths import Workspace
-from core.youtube import YouTube
 from domains import Runtime, register_domains
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 _INSTRUCTIONS = (
     "Servidor de tools para edição de vídeo e áudio. Fluxo típico: "
-    "download_youtube_video -> probe_video/extract_frame para assistir -> cut_video -> "
+    "download_video (qualquer URL) -> probe_video/extract_frame para assistir -> cut_video -> "
     "add_text_overlay/burn_subtitles/apply_template -> set_video_metadata. Todos os caminhos são "
     "relativos ao workspace. Comece com list_files e probe_video. Operações "
     "longas aceitam background=true e devolvem job_id; acompanhe com job_status "
@@ -39,7 +39,9 @@ def build_runtime(settings: Settings) -> Runtime:
             timeout_seconds=settings.ffmpeg_timeout,
         ),
         jobs=JobManager(workers=settings.job_workers),
-        youtube=YouTube(ffmpeg_bin=settings.ffmpeg_bin, timeout_seconds=settings.youtube_timeout),
+        downloader=Downloader(
+            ffmpeg_bin=settings.ffmpeg_bin, timeout_seconds=settings.download_timeout
+        ),
     )
 
 

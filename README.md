@@ -73,19 +73,36 @@ e veja acontecer.
 | video | `add_banner` | Faixa com fundo colorido e texto no topo ou rodapé, o tempo todo ou num intervalo |
 | audio | `extract_audio` | Separa a trilha de áudio |
 | audio | `transcribe_audio` | Transcreve fala com timestamps (extra `transcribe`) |
-| youtube | `get_youtube_info` | Título, duração, descrição e capítulos, sem baixar |
-| youtube | `download_youtube_video` | Baixa o vídeo (yt-dlp) para o workspace |
+| media | `get_video_info` | Título, duração, descrição e capítulos de uma URL, sem baixar |
+| media | `download_video` | Baixa o vídeo de qualquer site (yt-dlp) para o workspace |
 | jobs | `job_status` | Estado de um job em background |
 | jobs | `job_result` | Saída de um job concluído |
 
 Ative só o que precisa com `MCP_DOMAINS=video,files`.
 
-## Fluxo: do link do YouTube ao corte publicado
+### Download de qualquer fonte
+
+`download_video` e `get_video_info` aceitam qualquer URL http(s). São três
+tentativas, nesta ordem:
+
+1. **Extractor nativo do yt-dlp** — cobre mais de mil sites (YouTube, Vimeo,
+   Twitch, X, TikTok, Instagram, Facebook e afins).
+2. **Extractor genérico** — lê o HTML da página e procura `<video>`, `<source>`,
+   HLS `.m3u8`, DASH `.mpd`, players conhecidos e JSON-LD.
+3. **Varredura própria** — quando nem o genérico acha, o servidor busca a página,
+   junta as mídias diretas e desce um nível nos `iframe`. É o que resolve portais
+   de aula como o `eaulas.usp.br`, que escondem o MP4 dentro do player embutido.
+
+Não há como baixar conteúdo com DRM (Netflix, Disney+, cursos com Widevine) nem
+páginas que exigem login. Nesses casos o `hint` do erro diz para não insistir, em
+vez de mandar o agente tentar de novo à toa.
+
+## Fluxo: do link ao corte publicado
 
 O agente orquestra, o servidor executa. Um roteiro típico:
 
-1. `get_youtube_info` para ver duração, descrição e capítulos.
-2. `download_youtube_video` (background) e `job_result` para pegar o arquivo.
+1. `get_video_info` para ver duração, descrição e capítulos.
+2. `download_video` (background) e `job_result` para pegar o arquivo.
 3. `transcribe_audio`, `detect_scenes` e `extract_frame` para "assistir" e escolher os trechos.
 4. `cut_video` com os minutos escolhidos.
 5. `create_subtitles` + `burn_subtitles` para legendar, `add_text_overlay` para o título,

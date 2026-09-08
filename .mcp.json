@@ -5,7 +5,7 @@
       "args": ["run", "--directory", ".", "mcp-tools"],
       "env": {
         "WORKSPACE_DIR": "./workspace",
-        "MCP_DOMAINS": "video,audio,files,jobs,youtube"
+        "MCP_DOMAINS": "video,audio,files,jobs,media"
       }
     }
   }

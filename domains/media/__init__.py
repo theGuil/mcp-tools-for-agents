@@ -1,10 +1,10 @@
-"""Tools de YouTube: consulta de metadados e download para o workspace."""
+"""Tools de mídia da internet: metadados e download de vídeo de qualquer URL."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from domains.youtube import download, info
+from domains.media import download, info
 
 if TYPE_CHECKING:
     from mcp.server.mcpserver import MCPServer
