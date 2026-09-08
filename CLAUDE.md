@@ -64,7 +64,8 @@ uv run pytest                        # testes ffmpeg são pulados se o binário 
 
 - Python 3.14 gerenciado pelo `uv`
 - `mcp` (SDK oficial), FFmpeg/FFprobe no PATH
-- Extra opcional `transcribe` (faster-whisper)
+- Extras opcionais: `transcribe` (faster-whisper) e `vision` (opencv-python-headless,
+  modelo YuNet embarcado em `core/models`)
 - Ruff com `select = ["ALL"]`, mypy `strict`. Ambos precisam passar antes de commitar.
 
 ## Idioma
