@@ -61,6 +61,7 @@ e veja acontecer.
 | video | `probe_video` | Duração, resolução, fps, codecs |
 | video | `cut_video` | Recorta um trecho, com ou sem re-encode |
 | video | `concat_videos` | Junta vídeos em sequência |
+| video | `remove_silence` | Corta as pausas em que ninguém fala, com limiar em dB e margem |
 | video | `detect_scenes` | Encontra mudanças de cena |
 | video | `extract_frame` | Salva um frame como imagem |
 | video | `add_text_overlay` | Escreve título ou descrição sobre a imagem |
