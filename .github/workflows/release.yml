@@ -1,22 +1,58 @@
-# Gera o binário portátil do mcp-tools para cada plataforma e anexa à release.
+# Gera o binário portátil do mcp-tools para cada plataforma e publica a release.
 #
-# Dispara em tags `v*` (ex.: `git tag v0.1.0 && git push origin v0.1.0`) e
-# manualmente. Cada plataforma vira um arquivo `mcp-tools-<target>.tar.gz`
-# (ou `.zip` no Windows) anexado à release da tag. É desse anexo que o
-# `scripts/install-mcp-tools.sh` baixa o binário usado pelo Claude Code.
+# Dispara sozinho a cada push (merge) em `producao`: o job `tag` pega a última
+# tag `vX.Y.Z`, incrementa o patch e cria a tag nova; o job `build` compila
+# para cada plataforma e anexa `mcp-tools-<target>.tar.gz` (ou `.zip` no
+# Windows) à release dessa tag. É desse anexo que `scripts/install-mcp-tools.sh`
+# baixa o binário usado pelo Claude Code. Também roda manualmente.
 name: release
 
 on:
   push:
-    tags: ["v*"]
+    branches: ["producao"]
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  tag:
+    name: Criar tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Calcular a próxima versão
+        id: bump
+        run: |
+          last="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)"
+          if [ -z "$last" ]; then
+            next="v0.1.0"
+          else
+            base="${last#v}"
+            major="${base%%.*}"; rest="${base#*.}"
+            minor="${rest%%.*}"; patch="${rest#*.}"
+            next="v$major.$minor.$((patch + 1))"
+          fi
+          echo "Última: ${last:-nenhuma}. Próxima: $next"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+      - name: Criar e enviar a tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.bump.outputs.tag }}"
+          git push origin "${{ steps.bump.outputs.tag }}"
+
   build:
     name: ${{ matrix.target }}
+    needs: tag
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -62,6 +98,8 @@ jobs:
           Copy-Item README.md, .env.example dist/
           Compress-Archive -Path dist/* -DestinationPath mcp-tools-${{ matrix.target }}.zip
       - uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ needs.tag.outputs.tag }}
+          name: ${{ needs.tag.outputs.tag }}
+          generate_release_notes: true
           files: mcp-tools-${{ matrix.target }}.*

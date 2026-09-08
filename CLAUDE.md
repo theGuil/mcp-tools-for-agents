@@ -35,7 +35,7 @@ por um modelo.
 
 ```
 scripts/      install-mcp-tools.sh: baixa o binário da última release para bin/
-.github/      workflows/release.yml: compila e publica a release a cada tag v*
+.github/      workflows/release.yml: cria a tag e publica a release a cada merge em producao
 server.rs     cria o McpServer, monta o Runtime e registra os domínios
 config.rs     único lugar que lê variáveis de ambiente (Settings)
 core/         infraestrutura: ffmpeg, paths, jobs, errors, binaries. NÃO conhece MCP.
@@ -59,9 +59,10 @@ O Claude Code **não compila** este projeto para usar as tools. O binário vem d
    em `bin/mcp-tools` (pasta ignorada pelo git). Se a versão instalada já é a última,
    não baixa de novo.
 2. O `.mcp.json` aponta para `./bin/mcp-tools`.
-3. A release é gerada pelo workflow `.github/workflows/release.yml` quando uma tag
-   `v*` é enviada: `git tag v0.1.0 && git push origin v0.1.0`. Ele compila com
-   `--features full` para Linux, macOS e Windows e anexa os pacotes à release.
+3. A release é gerada sozinha pelo workflow `.github/workflows/release.yml` a cada
+   merge em `producao`: ele cria a próxima tag `vX.Y.Z` (incrementando o patch),
+   compila com `--features full` para Linux, macOS e Windows e anexa os pacotes
+   à release. Ninguém precisa criar tag à mão.
 
 Regras para o agente:
 
@@ -70,8 +71,9 @@ Regras para o agente:
   `cargo build` no `.mcp.json`.
 - Só use `cargo build --release` para **desenvolver** uma tool nova e testá-la
   localmente. O binário de `target/` não é o que o `.mcp.json` usa.
-- Uma tool nova só chega ao Claude Code depois de uma **nova tag** e da release
-  publicada. Ao terminar uma tool, lembre o usuário de publicar a release.
+- Uma tool nova só chega ao Claude Code depois do **merge em `producao`** e do
+  workflow de release terminar (alguns minutos). Ao terminar uma tool, lembre o
+  usuário de fazer o merge.
 - Para forçar o download de novo: `MCP_TOOLS_FORCE=true sh scripts/install-mcp-tools.sh`.
   Para fixar uma versão: `MCP_TOOLS_VERSION=v0.1.0`.
 
