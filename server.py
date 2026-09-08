@@ -11,6 +11,7 @@ from config import Settings
 from core.downloader import Downloader
 from core.errors import ToolError
 from core.ffmpeg import FFmpeg
+from core.freesound import Freesound
 from core.jobs import JobManager
 from core.paths import Workspace
 from domains import Runtime, register_domains
@@ -21,7 +22,10 @@ if TYPE_CHECKING:
 _INSTRUCTIONS = (
     "Servidor de tools para edição de vídeo e áudio. Fluxo típico: "
     "download_video (qualquer URL) -> probe_video/extract_frame para assistir -> cut_video -> "
-    "add_text_overlay/burn_subtitles/apply_template -> set_video_metadata. Todos os caminhos são "
+    "add_text_overlay/burn_subtitles/apply_template -> set_video_metadata. Para efeitos sonoros "
+    "(vine boom, ding, whoosh) em instantes específicos use add_sound_effects, que busca no "
+    "Freesound sozinho a partir de um texto; search_sound_effects deixa você escolher o som. "
+    "Todos os caminhos são "
     "relativos ao workspace. Comece com list_files e probe_video. Operações "
     "longas aceitam background=true e devolvem job_id; acompanhe com job_status "
     "e busque a saída com job_result. Erros vêm como {error, code, hint}."
@@ -42,6 +46,7 @@ def build_runtime(settings: Settings) -> Runtime:
         downloader=Downloader(
             ffmpeg_bin=settings.ffmpeg_bin, timeout_seconds=settings.download_timeout
         ),
+        freesound=Freesound(api_key=settings.freesound_api_key),
     )
 
 
