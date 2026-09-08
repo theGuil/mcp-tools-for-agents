@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "media": {
+    "mcp-tools-for-agents": {
       "command": "uv",
       "args": ["run", "--directory", ".", "mcp-tools"],
       "env": {

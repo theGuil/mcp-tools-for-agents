@@ -47,8 +47,8 @@ tool, confira o `.mcp.json`** e atualize-o quando:
 - a tool depende de uma **variável de ambiente nova** lida em `config.py`: adicione no `env`;
 - o **entrypoint** (`mcp-tools` em `pyproject.toml`) ou os argumentos de `uv run` mudarem.
 
-Depois, valide com `/mcp` no Claude Code: o servidor `media` deve aparecer conectado e a
-tool nova deve estar na lista.
+Depois, valide com `/mcp` no Claude Code: o servidor `mcp-tools-for-agents` deve
+aparecer conectado e a tool nova deve estar na lista.
 
 ## Comandos
 

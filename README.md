@@ -39,7 +39,7 @@ Requisitos: Python 3.14 (o `uv` instala), FFmpeg e FFprobe no PATH.
 ```json
 {
   "mcpServers": {
-    "media": {
+    "mcp-tools-for-agents": {
       "command": "uv",
       "args": ["run", "--directory", "/caminho/mcp-tools-for-agents", "mcp-tools"],
       "env": { "WORKSPACE_DIR": "/dados/videos" }
