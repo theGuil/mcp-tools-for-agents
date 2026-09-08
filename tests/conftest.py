@@ -11,6 +11,7 @@ import pytest
 from config import Settings
 from core.downloader import Downloader
 from core.ffmpeg import FFmpeg
+from core.freesound import Freesound
 from core.jobs import JobManager
 from core.paths import Workspace
 from domains import Runtime
@@ -53,6 +54,7 @@ def runtime(workspace: Workspace, jobs: JobManager) -> Runtime:
         ffmpeg=FFmpeg(),
         jobs=jobs,
         downloader=Downloader(),
+        freesound=Freesound(api_key="chave-de-teste"),
     )
 
 

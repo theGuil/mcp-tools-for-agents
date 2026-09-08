@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from config import DomainName, Settings
     from core.downloader import Downloader
     from core.ffmpeg import FFmpeg
+    from core.freesound import Freesound
     from core.jobs import JobManager
     from core.paths import Workspace
 
@@ -33,6 +34,7 @@ class Runtime:
     ffmpeg: FFmpeg
     jobs: JobManager
     downloader: Downloader
+    freesound: Freesound
 
 
 class DomainModule(Protocol):

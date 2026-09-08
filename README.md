@@ -69,6 +69,7 @@ e veja acontecer.
 | video | `burn_subtitles` | Grava legendas de um .srt no vídeo |
 | video | `set_video_metadata` | Embute título, descrição e autor no arquivo |
 | video | `add_narration` | Mistura um áudio de narração no vídeo |
+| video | `add_sound_effects` | Insere efeitos sonoros (vine boom, ding, whoosh) em instantes do vídeo, buscando no Freesound se preciso |
 | video | `list_templates` | Lista os templates visuais disponíveis |
 | video | `apply_template` | Shorts 9:16, quadrado, 16:9, título de abertura, marca d'água |
 | video | `add_banner` | Faixa com fundo colorido e texto no topo ou rodapé, o tempo todo ou num intervalo |
@@ -76,6 +77,8 @@ e veja acontecer.
 | audio | `transcribe_audio` | Transcreve fala com timestamps (extra `transcribe`) |
 | media | `get_video_info` | Título, duração, descrição e capítulos de uma URL, sem baixar |
 | media | `download_video` | Baixa o vídeo de qualquer site (yt-dlp) para o workspace |
+| media | `search_sound_effects` | Busca efeitos sonoros gratuitos no Freesound por descrição em texto |
+| media | `download_sound_effect` | Baixa um efeito do Freesound (MP3) para a pasta `sfx/` do workspace |
 | jobs | `job_status` | Estado de um job em background |
 | jobs | `job_result` | Saída de um job concluído |
 
@@ -98,6 +101,32 @@ Não há como baixar conteúdo com DRM (Netflix, Disney+, cursos com Widevine) n
 páginas que exigem login. Nesses casos o `hint` do erro diz para não insistir, em
 vez de mandar o agente tentar de novo à toa.
 
+### Efeitos sonoros do Freesound
+
+`add_sound_effects` recebe uma lista de efeitos com o instante em que cada um
+toca e aplica tudo em um único passo do ffmpeg, sem re-encodar o vídeo. Cada
+efeito vem de uma de três origens:
+
+- `query`: descrição em inglês (`"vine boom"`, `"record scratch"`, `"ding"`); a
+  tool busca no [Freesound](https://freesound.org), baixa o primeiro resultado
+  para `sfx/` e usa;
+- `sound_id`: um resultado escolhido com `search_sound_effects`;
+- `audio`: um arquivo que já está no workspace.
+
+```json
+{"path": "corte.mp4", "effects": [
+  {"query": "vine boom", "start": 3.2},
+  {"query": "record scratch", "start": 7.0, "volume": 0.8},
+  {"audio": "sfx/risada.mp3", "start": 12.5}
+]}
+```
+
+Os sons vêm do preview MP3 (128 kbps) do Freesound, que basta para vídeo
+curto e não exige OAuth. A chave da API já vem embutida em `config.py`;
+`FREESOUND_API_KEY` no ambiente substitui. O resultado informa a licença de
+cada som: CC0 e CC BY servem para qualquer uso (CC BY pede crédito ao autor),
+CC BY-NC é só para uso não comercial.
+
 ## Fluxo: do link ao corte publicado
 
 O agente orquestra, o servidor executa. Um roteiro típico:
@@ -107,7 +136,8 @@ O agente orquestra, o servidor executa. Um roteiro típico:
 3. `transcribe_audio`, `detect_scenes` e `extract_frame` para "assistir" e escolher os trechos.
 4. `cut_video` com os minutos escolhidos.
 5. `create_subtitles` + `burn_subtitles` para legendar, `add_text_overlay` para o título,
-   `add_narration` para a locução, `apply_template` para o formato da rede.
+   `add_narration` para a locução, `add_sound_effects` para os efeitos de impacto,
+   `apply_template` para o formato da rede.
 6. `set_video_metadata` com título e descrição finais.
 
 ## Como é por dentro

@@ -1,7 +1,7 @@
 """Wrapper tipado para o ``yt-dlp``.
 
-Único ponto do projeto que conversa com a internet. O restante recebe apenas
-metadados tipados e o caminho do arquivo baixado.
+Junto com ``core/freesound.py``, é onde o projeto conversa com a internet. O
+restante recebe apenas metadados tipados e o caminho do arquivo baixado.
 
 Aceita qualquer URL http(s). O yt-dlp tem extractor nativo para mais de mil
 sites e, quando nenhum reconhece a página, o extractor genérico baixa o HTML e

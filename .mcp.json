@@ -5,7 +5,8 @@
       "args": ["run", "--directory", ".", "mcp-tools"],
       "env": {
         "WORKSPACE_DIR": "./workspace",
-        "MCP_DOMAINS": "video,audio,files,jobs,media"
+        "MCP_DOMAINS": "video,audio,files,jobs,media",
+        "FREESOUND_API_KEY": ""
       }
     }
   }

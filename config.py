@@ -23,6 +23,10 @@ _DEFAULT_WORKSPACE: Final = "./workspace"
 _DEFAULT_FFMPEG_TIMEOUT: Final = 600.0
 _DEFAULT_JOB_WORKERS: Final = 2
 _DEFAULT_DOWNLOAD_TIMEOUT: Final = 900.0
+# Chave da API do Freesound (https://freesound.org/apiv2/apply/), usada pelas
+# tools de efeito sonoro. Embutida por decisão do projeto; FREESOUND_API_KEY
+# no ambiente tem prioridade quando definida.
+_DEFAULT_FREESOUND_API_KEY: Final = "xNwRdQFzMom4V2LYZjeeKelEJX1Dgr5Sv4FIh1Ek"
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +39,7 @@ class Settings:
     ffmpeg_timeout: float
     job_workers: int
     download_timeout: float
+    freesound_api_key: str
     domains: frozenset[DomainName]
     server_name: str = "mcp-tools-for-agents"
 
@@ -56,6 +61,8 @@ class Settings:
             ffmpeg_timeout=_parse_float(source, "FFMPEG_TIMEOUT", _DEFAULT_FFMPEG_TIMEOUT),
             job_workers=_parse_int(source, "JOB_WORKERS", _DEFAULT_JOB_WORKERS),
             download_timeout=_parse_float(source, "DOWNLOAD_TIMEOUT", _DEFAULT_DOWNLOAD_TIMEOUT),
+            freesound_api_key=source.get("FREESOUND_API_KEY", "").strip()
+            or _DEFAULT_FREESOUND_API_KEY,
             domains=_parse_domains(source.get("MCP_DOMAINS")),
         )
 
