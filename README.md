@@ -84,13 +84,10 @@ MCP_TOOLS_FORCE=true sh scripts/install-mcp-tools.sh   # baixa de novo
 
 ### Publicar uma release
 
-O workflow `.github/workflows/release.yml` compila o binário completo
-(`--features full`) para Linux x86_64 e arm64, macOS Intel e Apple Silicon e
-Windows, e anexa os pacotes à release de cada tag `v*`:
-
-```bash
-git tag v0.1.0 && git push origin v0.1.0
-```
+Automático. A cada merge em `producao`, o workflow `.github/workflows/release.yml`
+cria a próxima tag `vX.Y.Z`, compila o binário completo (`--features full`) para
+Linux x86_64 e arm64, macOS Intel e Apple Silicon e Windows, e anexa os pacotes
+à release.
 
 ## Tools
 

@@ -7,20 +7,22 @@ repositório no GitHub. Nunca aponte o `.mcp.json` para `target/`.
 
 | Passo | Quem faz | Onde |
 |---|---|---|
-| Compilar e publicar a release | GitHub Actions, ao receber uma tag `v*` | `.github/workflows/release.yml` |
+| Criar a tag, compilar e publicar a release | GitHub Actions, a cada push em `producao` | `.github/workflows/release.yml` |
 | Baixar a última release | hook `SessionStart` do Claude Code | `.claude/settings.json` → `scripts/install-mcp-tools.sh` |
 | Subir o servidor | Claude Code, via stdio | `.mcp.json` → `./bin/mcp-tools` |
 
 ## Publicar uma versão nova
 
 1. Garanta `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` e `cargo test` verdes.
-2. Atualize `version` em `Cargo.toml`.
-3. Crie e envie a tag com o mesmo número: `git tag v0.2.0 && git push origin v0.2.0`.
-4. Acompanhe o workflow `release` no GitHub. Ao terminar, a release aparece em
-   `https://github.com/theGuil/mcp-tools-for-agents/releases` com um
-   `mcp-tools-<target>.tar.gz` por plataforma (e `.zip` no Windows).
-5. Na próxima sessão do Claude Code o hook baixa a versão nova sozinho. Para
+2. Faça o merge em `producao`. Só isso.
+3. O workflow `release` cria a próxima tag (`v0.1.0`, `v0.1.1`, `v0.1.2`...),
+   compila e publica em `https://github.com/theGuil/mcp-tools-for-agents/releases`
+   um `mcp-tools-<target>.tar.gz` por plataforma (e `.zip` no Windows).
+4. Na próxima sessão do Claude Code o hook baixa a versão nova sozinho. Para
    atualizar agora: `sh scripts/install-mcp-tools.sh`.
+
+Para pular de minor ou major (ex.: sair de `v0.1.7` para `v0.2.0`), crie essa tag
+à mão uma vez e envie; os merges seguintes continuam a partir dela.
 
 ## Script `scripts/install-mcp-tools.sh`
 
@@ -37,6 +39,6 @@ repositório no GitHub. Nunca aponte o `.mcp.json` para `target/`.
 
 - Servidor não conecta no `/mcp`: rode `sh scripts/install-mcp-tools.sh` e leia a
   saída. O erro mais comum é não existir release ainda, ou a rede bloquear o GitHub.
-- Tool nova criada: ela só existe para o Claude Code depois de uma release nova.
-  Termine o trabalho lembrando o usuário de subir a tag.
+- Tool nova criada: ela só existe para o Claude Code depois do merge em `producao`
+  e do workflow terminar. Termine o trabalho lembrando o usuário do merge.
 - Nunca commite `bin/` nem o binário.
