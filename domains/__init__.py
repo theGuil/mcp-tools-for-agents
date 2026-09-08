@@ -18,10 +18,10 @@ if TYPE_CHECKING:
     from mcp.server.mcpserver import MCPServer
 
     from config import DomainName, Settings
+    from core.downloader import Downloader
     from core.ffmpeg import FFmpeg
     from core.jobs import JobManager
     from core.paths import Workspace
-    from core.youtube import YouTube
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,7 +32,7 @@ class Runtime:
     workspace: Workspace
     ffmpeg: FFmpeg
     jobs: JobManager
-    youtube: YouTube
+    downloader: Downloader
 
 
 class DomainModule(Protocol):

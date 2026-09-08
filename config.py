@@ -15,14 +15,14 @@ from core.errors import ToolError
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-type DomainName = Literal["video", "audio", "files", "jobs", "youtube"]
+type DomainName = Literal["video", "audio", "files", "jobs", "media"]
 
 ALL_DOMAINS: Final[tuple[DomainName, ...]] = get_args(DomainName.__value__)
 
 _DEFAULT_WORKSPACE: Final = "./workspace"
 _DEFAULT_FFMPEG_TIMEOUT: Final = 600.0
 _DEFAULT_JOB_WORKERS: Final = 2
-_DEFAULT_YOUTUBE_TIMEOUT: Final = 900.0
+_DEFAULT_DOWNLOAD_TIMEOUT: Final = 900.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +34,7 @@ class Settings:
     ffprobe_bin: str
     ffmpeg_timeout: float
     job_workers: int
-    youtube_timeout: float
+    download_timeout: float
     domains: frozenset[DomainName]
     server_name: str = "mcp-tools-for-agents"
 
@@ -55,7 +55,7 @@ class Settings:
             ffprobe_bin=source.get("FFPROBE_BIN", "ffprobe"),
             ffmpeg_timeout=_parse_float(source, "FFMPEG_TIMEOUT", _DEFAULT_FFMPEG_TIMEOUT),
             job_workers=_parse_int(source, "JOB_WORKERS", _DEFAULT_JOB_WORKERS),
-            youtube_timeout=_parse_float(source, "YOUTUBE_TIMEOUT", _DEFAULT_YOUTUBE_TIMEOUT),
+            download_timeout=_parse_float(source, "DOWNLOAD_TIMEOUT", _DEFAULT_DOWNLOAD_TIMEOUT),
             domains=_parse_domains(source.get("MCP_DOMAINS")),
         )
 
