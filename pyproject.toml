@@ -12,6 +12,7 @@ dependencies = [
 
 [project.optional-dependencies]
 transcribe = ["faster-whisper>=1.1"]
+vision = ["opencv-python-headless>=4.10"]
 
 [project.scripts]
 mcp-tools = "server:main"
@@ -84,4 +85,8 @@ markers = ["ffmpeg: testes que exigem o binário ffmpeg instalado"]
 
 [[tool.mypy.overrides]]
 module = ["yt_dlp", "yt_dlp.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["cv2", "cv2.*"]
 ignore_missing_imports = true
