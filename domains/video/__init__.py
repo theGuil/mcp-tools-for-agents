@@ -1,4 +1,4 @@
-"""Tools de vídeo: inspeção, corte, concatenação, cenas, frames, texto, legenda e templates."""
+"""Tools de vídeo: inspeção, corte, silêncio, concatenação, cenas, frames, texto e legenda."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from domains.video import (
     metadata,
     narration,
     probe,
+    remove_silence,
     scenes,
     subtitles,
     template,
@@ -31,6 +32,7 @@ def register(mcp: MCPServer[None], runtime: Runtime) -> None:
     cut.register(mcp, runtime)
     concat.register(mcp, runtime)
     scenes.register(mcp, runtime)
+    remove_silence.register(mcp, runtime)
     frame.register(mcp, runtime)
     text_overlay.register(mcp, runtime)
     subtitles.register(mcp, runtime)
