@@ -58,7 +58,9 @@ O Claude Code **não compila** este projeto para usar as tools. O binário vem d
    baixa o `mcp-tools-<target>.tar.gz` da release mais recente e extrai o executável
    em `bin/mcp-tools` (pasta ignorada pelo git). Se a versão instalada já é a última,
    não baixa de novo.
-2. O `.mcp.json` aponta para `./bin/mcp-tools`.
+2. O `.mcp.json` aponta para `scripts/mcp-tools-run.sh`, que espera o hook terminar
+   (ou baixa sozinho, se o hook ainda não rodou) e executa `bin/mcp-tools`. Assim a
+   conexão não falha numa máquina nova só porque o download ainda estava em curso.
 3. A release é gerada sozinha pelo workflow `.github/workflows/release.yml` a cada
    merge em `producao`: ele cria a próxima tag `vX.Y.Z` (incrementando o patch),
    compila com `--features full` para Linux, macOS e Windows e anexa os pacotes
@@ -81,8 +83,8 @@ Detalhes em `.claude/rules/release.md`.
 
 ## Registro no Claude Code (`.mcp.json`)
 
-O `.mcp.json` da raiz aponta para `./bin/mcp-tools`, o binário baixado da última
-release (ver seção acima). As tools são descobertas em tempo de execução pelo
+O `.mcp.json` da raiz aponta para `scripts/mcp-tools-run.sh`, que executa
+`./bin/mcp-tools`, o binário baixado da última release (ver seção acima). As tools são descobertas em tempo de execução pelo
 `tools/list`, então uma tool nova dentro de um domínio existente aparece sozinha
 assim que uma release nova é publicada e baixada. Mesmo assim, **ao criar ou
 alterar uma tool, confira o `.mcp.json`** e atualize-o quando:

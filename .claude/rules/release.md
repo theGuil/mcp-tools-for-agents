@@ -9,7 +9,7 @@ repositório no GitHub. Nunca aponte o `.mcp.json` para `target/`.
 |---|---|---|
 | Criar a tag, compilar e publicar a release | GitHub Actions, a cada push em `producao` | `.github/workflows/release.yml` |
 | Baixar a última release | hook `SessionStart` do Claude Code | `.claude/settings.json` → `scripts/install-mcp-tools.sh` |
-| Subir o servidor | Claude Code, via stdio | `.mcp.json` → `./bin/mcp-tools` |
+| Subir o servidor | Claude Code, via stdio | `.mcp.json` → `scripts/mcp-tools-run.sh` → `./bin/mcp-tools` |
 
 ## Publicar uma versão nova
 
@@ -34,6 +34,15 @@ Para pular de minor ou major (ex.: sair de `v0.1.7` para `v0.2.0`), crie essa ta
   para não travar a sessão.
 - Precisa de `curl` e `tar`, presentes em qualquer Linux e macOS. Precisa de rede
   para `github.com`.
+
+## Script `scripts/mcp-tools-run.sh`
+
+- É o `command` do `.mcp.json`. O Claude Code abre os servidores stdio ao mesmo
+  tempo em que roda o hook `SessionStart`; numa máquina nova o binário pode ainda
+  não existir nessa hora.
+- Espera até `MCP_TOOLS_WAIT` segundos (padrão 20) o hook gravar o binário e a
+  marca de versão. Se não aparecer, roda o `install-mcp-tools.sh` sozinho.
+- Só escreve em stderr: stdout é o canal do protocolo MCP.
 
 ## O que o agente deve fazer
 
