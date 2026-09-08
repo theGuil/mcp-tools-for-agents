@@ -1,38 +1,55 @@
 # mcp-tools-for-agents
 
-**Dê mãos ao seu agente de IA.**
+**Dê mãos ao seu agente de IA. Um binário, nenhuma instalação.**
 
-Um servidor MCP local, em Python puro, que entrega ao seu agente ferramentas reais
-de vídeo, áudio e arquivos. Sem API, sem rede, sem UI. O agente sobe o servidor como
-subprocesso, recebe as tools e trabalha dentro de um workspace isolado.
+Um servidor MCP local, em Rust, que entrega ao seu agente ferramentas reais de
+vídeo, áudio e arquivos. Sem API, sem UI, sem runtime. São 34 tools compiladas em
+um executável único: baixe o `mcp-tools` da sua plataforma, aponte o host MCP para
+ele e pronto.
 
 Funciona com Claude Code, Claude Desktop, Cursor e qualquer host MCP.
 
-## Por que esse projeto existe
+## Por que Rust
 
-Modelos são bons em decidir. São péssimos em executar `ffmpeg` na mão.
-Este projeto fecha esse buraco com tools desenhadas **para o modelo ler**:
+O servidor precisa de **um arquivo**:
 
-- **Erro que ensina.** Toda falha volta como `{"error", "code", "hint"}`. O `hint` diz
-  ao agente o que fazer a seguir. Ele se corrige sozinho.
-- **Workspace como fronteira.** Nada fora de `WORKSPACE_DIR` é lido ou escrito.
-  Nem com `..`, nem com caminho absoluto.
-- **Operação longa não trava.** Passe `background=true`, receba um `job_id`, acompanhe
-  com `job_status`, busque com `job_result`.
-- **Resposta sempre tipada.** Cada tool devolve um `TypedDict`. Zero surpresa.
-- **Um arquivo por tool.** Abriu o arquivo, entendeu a tool. Criar uma nova leva minutos.
+- **Binário único por plataforma.** Linux (x86_64, arm64), macOS (Intel, Apple
+  Silicon) e Windows. Sem runtime, sem dependência de sistema.
+- **FFmpeg e yt-dlp sob demanda.** Se não estiverem no PATH nem ao lado do
+  binário, o servidor baixa os builds estáticos oficiais na primeira chamada e
+  guarda em uma pasta de cache. Desligue com `MCP_AUTO_DOWNLOAD=false`.
+- **Fonte e modelo embutidos.** A DejaVu Sans Bold (para texto e legenda) e o
+  YuNet (detector de rosto do OpenCV Zoo) vão dentro do executável.
+- **Transcrição e visão nativas.** `transcribe_audio` usa o whisper.cpp
+  (`whisper-rs`) e `smart_crop` roda o YuNet no `tract`, runtime ONNX em Rust
+  puro. Nada de OpenCV instalado.
+- **Mesmos princípios.** Erro que ensina (`{error, code, hint}`), workspace
+  como fronteira, jobs em background, resposta sempre tipada, um arquivo por tool.
 
 ## Em 60 segundos
 
+Baixe o pacote da sua plataforma na [página de releases](https://github.com/theGuil/mcp-tools-for-agents/releases/latest)
+(ou compile, abaixo), descompacte e rode:
+
 ```bash
-git clone https://github.com/theguil/mcp-tools-for-agents
-cd mcp-tools-for-agents
-uv sync
-cp .env.example .env      # ajuste WORKSPACE_DIR
-uv run mcp-tools          # servidor no ar, via stdio
+WORKSPACE_DIR=/dados/videos ./mcp-tools     # servidor no ar, via stdio
 ```
 
-Requisitos: Python 3.14 (o `uv` instala), FFmpeg e FFprobe no PATH.
+Na primeira tool que precisar de FFmpeg (ou de yt-dlp) o binário é baixado para
+o cache. Se preferir, coloque `ffmpeg`, `ffprobe` e `yt-dlp` ao lado do
+`mcp-tools` ou no PATH: eles têm prioridade e nada é baixado.
+
+### Compilar do fonte
+
+```bash
+cargo build --release --features full   # binário completo (transcrição + visão)
+cargo build --release                   # binário leve, sem os extras
+```
+
+Requisitos de build: Rust estável (1.85+); com `--features full`, também `cmake`
+e um compilador C++ (o whisper.cpp é compilado e linkado estaticamente). O
+executável fica em `target/release/mcp-tools` (~24 MB). No Linux ele depende só
+da glibc e da libstdc++ do sistema, presentes em qualquer distribuição.
 
 ## Plugar no agente
 
@@ -40,17 +57,40 @@ Requisitos: Python 3.14 (o `uv` instala), FFmpeg e FFprobe no PATH.
 {
   "mcpServers": {
     "mcp-tools-for-agents": {
-      "command": "uv",
-      "args": ["run", "--directory", "/caminho/mcp-tools-for-agents", "mcp-tools"],
+      "command": "/caminho/mcp-tools",
       "env": { "WORKSPACE_DIR": "/dados/videos" }
     }
   }
 }
 ```
 
-Cole isso no `.mcp.json` (Claude Code), no `claude_desktop_config.json` (Claude Desktop)
-ou no equivalente do seu host. Pronto: peça "corta os 10 primeiros segundos do intro.mp4"
-e veja acontecer.
+Cole isso no `.mcp.json` (Claude Code), no `claude_desktop_config.json` (Claude
+Desktop) ou no equivalente do seu host. Pronto: peça "corta os 10 primeiros
+segundos do intro.mp4" e veja acontecer.
+
+### Claude Code neste repositório
+
+Abrindo este repositório no Claude Code nada precisa ser compilado: o hook
+`SessionStart` em `.claude/settings.json` roda `scripts/install-mcp-tools.sh`,
+que baixa o `mcp-tools` da **última release** para `bin/` (pasta ignorada pelo
+git), e o `.mcp.json` já aponta para `./bin/mcp-tools`. Para atualizar à mão ou
+fixar uma versão:
+
+```bash
+sh scripts/install-mcp-tools.sh                        # última release
+MCP_TOOLS_VERSION=v0.1.0 sh scripts/install-mcp-tools.sh   # versão fixa
+MCP_TOOLS_FORCE=true sh scripts/install-mcp-tools.sh   # baixa de novo
+```
+
+### Publicar uma release
+
+O workflow `.github/workflows/release.yml` compila o binário completo
+(`--features full`) para Linux x86_64 e arm64, macOS Intel e Apple Silicon e
+Windows, e anexa os pacotes à release de cada tag `v*`:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
 
 ## Tools
 
@@ -79,10 +119,10 @@ e veja acontecer.
 | video | `zoom_video` | Punch-in de impacto ou zoom progressivo (Ken Burns) em um trecho |
 | video | `create_dynamic_subtitles` | Legenda animada palavra por palavra (estilo TikTok) em .ass |
 | video | `create_thumbnail` | Capa do vídeo com título grande, nos tamanhos de YouTube, Shorts e feed |
-| video | `smart_crop` | Reenquadra 16:9 para 9:16 seguindo o rosto de quem fala (extra `vision`) |
+| video | `smart_crop` | Reenquadra 16:9 para 9:16 seguindo o rosto de quem fala (feature `vision`) |
 | video | `export_for_platform` | Codifica o vídeo final com o preset de TikTok, Reels, Shorts, YouTube ou X |
 | audio | `extract_audio` | Separa a trilha de áudio |
-| audio | `transcribe_audio` | Transcreve fala com timestamps por trecho e por palavra (extra `transcribe`) |
+| audio | `transcribe_audio` | Transcreve fala com timestamps por trecho e por palavra (feature `transcribe`) |
 | audio | `normalize_audio` | Normaliza o volume para o loudness da plataforma (EBU R128, duas passadas) |
 | media | `get_video_info` | Título, duração, descrição e capítulos de uma URL, sem baixar |
 | media | `download_video` | Baixa o vídeo de qualquer site (yt-dlp) para o workspace |
@@ -93,141 +133,136 @@ e veja acontecer.
 
 Ative só o que precisa com `MCP_DOMAINS=video,files`.
 
+## O que é baixado, e quando
+
+O binário não traz FFmpeg nem yt-dlp dentro (são ~150 MB e ~30 MB, com licenças
+próprias). Ele os procura nesta ordem e para na primeira que encontrar:
+
+1. o caminho em `FFMPEG_BIN`, `FFPROBE_BIN` ou `YTDLP_BIN`, se for um caminho;
+2. a pasta onde o `mcp-tools` está;
+3. o `PATH`;
+4. a pasta de cache (`MCP_CACHE_DIR`);
+5. download, se `MCP_AUTO_DOWNLOAD=true` (padrão).
+
+| O quê | De onde | Quando |
+|---|---|---|
+| ffmpeg + ffprobe | builds estáticos BtbN (Linux, Windows) e evermeet.cx (macOS) | primeira tool de vídeo ou áudio |
+| yt-dlp | release oficial no GitHub (executável standalone, sem Python) | primeiro `download_video` / `get_video_info` |
+| modelo Whisper (`ggml-<size>.bin`) | Hugging Face, repositório `ggerganov/whisper.cpp` | primeiro `transcribe_audio` com aquele `model_size` |
+| fonte DejaVu | embutida; gravada no cache só se o sistema não tiver fonte | primeira tool com texto |
+
+Cache padrão: `~/.cache/mcp-tools-for-agents` (Linux), `~/Library/Caches/mcp-tools-for-agents`
+(macOS), `%LOCALAPPDATA%\mcp-tools-for-agents` (Windows). Para um pacote 100% offline,
+coloque esses arquivos na pasta do binário (`ffmpeg`, `ffprobe`, `yt-dlp`,
+`models/ggml-base.bin`, `fonts/DejaVuSans-Bold.ttf`).
+
 ### Download de qualquer fonte
 
 `download_video` e `get_video_info` aceitam qualquer URL http(s). São três
 tentativas, nesta ordem:
 
-1. **Extractor nativo do yt-dlp** — cobre mais de mil sites (YouTube, Vimeo,
-   Twitch, X, TikTok, Instagram, Facebook e afins).
+1. **Extractor nativo do yt-dlp** — cobre mais de mil sites.
 2. **Extractor genérico** — lê o HTML da página e procura `<video>`, `<source>`,
    HLS `.m3u8`, DASH `.mpd`, players conhecidos e JSON-LD.
-3. **Varredura própria** — quando nem o genérico acha, o servidor busca a página,
-   junta as mídias diretas e desce um nível nos `iframe`. É o que resolve portais
-   de aula como o `eaulas.usp.br`, que escondem o MP4 dentro do player embutido.
+3. **Varredura própria** — o servidor busca a página, junta as mídias diretas e
+   desce um nível nos `iframe`.
 
-Não há como baixar conteúdo com DRM (Netflix, Disney+, cursos com Widevine) nem
-páginas que exigem login. Nesses casos o `hint` do erro diz para não insistir, em
-vez de mandar o agente tentar de novo à toa.
+Não há como baixar conteúdo com DRM nem páginas que exigem login. Nesses casos o
+`hint` do erro diz para não insistir.
 
 ### Efeitos sonoros do Freesound
 
 `add_sound_effects` recebe uma lista de efeitos com o instante em que cada um
-toca e aplica tudo em um único passo do ffmpeg, sem re-encodar o vídeo. Cada
-efeito vem de uma de três origens:
+toca e aplica tudo em um único passo do ffmpeg. Cada efeito vem de `query`
+(busca no Freesound), `sound_id` (resultado de `search_sound_effects`) ou
+`audio` (arquivo do workspace). A chave da API já vem embutida em `config.rs`;
+`FREESOUND_API_KEY` no ambiente substitui.
 
-- `query`: descrição em inglês (`"vine boom"`, `"record scratch"`, `"ding"`); a
-  tool busca no [Freesound](https://freesound.org), baixa o primeiro resultado
-  para `sfx/` e usa;
-- `sound_id`: um resultado escolhido com `search_sound_effects`;
-- `audio`: um arquivo que já está no workspace.
+### Features opcionais
 
-```json
-{"path": "corte.mp4", "effects": [
-  {"query": "vine boom", "start": 3.2},
-  {"query": "record scratch", "start": 7.0, "volume": 0.8},
-  {"audio": "sfx/risada.mp3", "start": 12.5}
-]}
-```
-
-Os sons vêm do preview MP3 (128 kbps) do Freesound, que basta para vídeo
-curto e não exige OAuth. A chave da API já vem embutida em `config.py`;
-`FREESOUND_API_KEY` no ambiente substitui. O resultado informa a licença de
-cada som: CC0 e CC BY servem para qualquer uso (CC BY pede crédito ao autor),
-CC BY-NC é só para uso não comercial.
-
-### Extras opcionais
-
-Duas tools dependem de bibliotecas pesadas que não vêm por padrão:
+Duas tools dependem de bibliotecas pesadas, ligadas por feature do Cargo:
 
 ```bash
-uv sync --extra transcribe   # faster-whisper: transcribe_audio
-uv sync --extra vision       # opencv-python-headless: smart_crop com mode="face"
+cargo build --release --features transcribe   # whisper-rs: transcribe_audio
+cargo build --release --features vision       # tract + YuNet: smart_crop com mode="face"
+cargo build --release --features full         # as duas (é o que a release publica)
 ```
 
-O `smart_crop` usa o [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet),
-detector de rostos oficial do OpenCV Zoo. O modelo ONNX (230 KB, licença MIT) já vem
-em `core/models`, então não há download em tempo de execução. Sem o extra, a tool
-continua funcionando com `mode="center"`.
+Sem a feature, a tool continua registrada e devolve um erro `unavailable`
+explicando como habilitar; `smart_crop` segue funcionando com `mode="center"`.
 
-## Fluxo: do link ao corte publicado
+## Configuração
 
-O agente orquestra, o servidor executa. Um roteiro típico para um corte de
-TikTok, Reels ou Shorts a partir de um vídeo horizontal:
+Todas as variáveis estão em `.env.example`. As principais:
 
-1. `get_video_info` para ver duração, descrição e capítulos.
-2. `download_video` (background) e `job_result` para pegar o arquivo.
-3. `transcribe_audio` (com tempos por palavra), `detect_scenes` e `extract_frame`
-   para "assistir" e escolher os trechos.
-4. `cut_video` com os minutos escolhidos e `remove_silence` para tirar as pausas.
-5. `smart_crop` para virar 9:16 seguindo o rosto (ou `apply_template` "shorts" para
-   manter o quadro inteiro sobre fundo desfocado).
-6. `change_speed` para acelerar partes lentas e `zoom_video` para dar ênfase nas
-   frases fortes.
-7. `create_dynamic_subtitles` + `burn_subtitles` para a legenda animada palavra por
-   palavra, `add_text_overlay` ou `add_banner` para o título.
-8. `add_narration` para locução, `add_sound_effects` para os efeitos de impacto,
-   `add_background_music` para a trilha com ducking, `add_fade` para o acabamento.
-9. `normalize_audio` para o volume padrão da plataforma e `export_for_platform`
-   para o MP4 final.
-10. `create_thumbnail` para a capa e `set_video_metadata` com título e descrição.
-
-Para um vídeo longo de YouTube o roteiro é o mesmo sem o passo 5, com
-`concat_videos` (com `transition="fade"`) para juntar os blocos e
-`export_for_platform` com `youtube` ou `youtube_4k`.
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `YTDLP_BIN` | `yt-dlp` | Nome ou caminho do yt-dlp |
+| `MCP_AUTO_DOWNLOAD` | `true` | Baixar ffmpeg, yt-dlp e modelos sob demanda |
+| `MCP_CACHE_DIR` | cache do sistema | Onde os downloads ficam |
 
 ## Como é por dentro
 
+A árvore fica na raiz do crate (o `Cargo.toml` aponta para a raiz em vez de `src/`):
+
 ```
-server.py     cria o MCPServer e registra os domínios
-config.py     único lugar que lê variáveis de ambiente
-core/         ffmpeg, paths, jobs, errors. Não conhece MCP.
-domains/      um pacote por área, um arquivo por tool
+server.rs     cria o McpServer, monta o Runtime e registra os domínios
+config.rs     único lugar que lê variáveis de ambiente (Settings)
+core/         ffmpeg, paths, jobs, errors, binários externos, rede. Não conhece MCP.
+domains/      um módulo por área, um arquivo por tool
 tests/        espelha a estrutura acima
 ```
 
 Uma tool inteira, do jeito que todas são:
 
-```python
-@guarded
-def delete_file(runtime: Runtime, path: str) -> DeleteFileResult:
-    target = runtime.workspace.existing(path)
-    size = target.stat().st_size
-    target.unlink()
-    return DeleteFileResult(deleted=runtime.workspace.relative(target), freed_bytes=size)
+```rust
+pub fn delete_file(runtime: &Runtime, path: &str) -> ToolResult<DeleteFileResult> {
+    let target = runtime.workspace.existing(path)?;
+    let size = std::fs::metadata(&target).map(|m| m.len()).unwrap_or(0);
+    std::fs::remove_file(&target).map_err(|error| {
+        ToolError::new(format!("Não foi possível apagar '{path}': {error}"), ErrorCode::NotFound)
+    })?;
+    Ok(DeleteFileResult { deleted: runtime.workspace.relative(&target), freed_bytes: size })
+}
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct Params {
+    /// Arquivo, relativo ao workspace.
+    pub path: String,
+}
 
-def register(mcp: MCPServer[None], runtime: Runtime) -> None:
-    @mcp.tool(name="delete_file")
-    def _tool(path: str) -> DeleteFileResult | ErrorPayload:
-        """Apaga permanentemente um arquivo do workspace.
-
-        Args:
-            path: Arquivo, relativo ao workspace.
-        """
-        return delete_file(runtime, path)
+pub fn register(mcp: &mut McpServer, runtime: &Arc<Runtime>) {
+    let runtime = Arc::clone(runtime);
+    mcp.tool(
+        "delete_file",
+        "Apaga permanentemente um arquivo do workspace.\n\n\
+         Use para limpar saídas intermediárias. Não há lixeira nem desfazer.",
+        move |params: Params| guarded(delete_file(&runtime, &params.path)),
+    );
+}
 ```
 
-Função pura e testável em cima, registro com docstring para o agente embaixo.
-É só isso.
+Função pura e testável em cima, registro com a description para o agente
+embaixo. `Err(ToolError)` vira `{error, code, hint}` na resposta.
 
 ## Contribuir
 
-Quer uma tool nova? Copie `domains/files/delete.py`, troque o miolo, escreva o teste
-espelhado em `tests/`, adicione a linha na tabela acima. As regras completas estão em
-`.claude/rules/arquitetura.md`, e se você usa Claude Code, `/nova-tool` faz o roteiro.
+Quer uma tool nova? Copie `domains/files/delete.rs`, troque o miolo, escreva o
+teste espelhado em `tests/`, adicione a linha na tabela acima. As regras
+completas estão em `.claude/rules/arquitetura.md`, e se você usa Claude Code,
+`/nova-tool` faz o roteiro.
 
 Antes do PR, os três precisam passar:
 
 ```bash
-uv run ruff check . && uv run ruff format --check .
-uv run mypy
-uv run pytest
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test
 ```
 
-Ruff em `ALL`, mypy em `strict`. Rígido de propósito: é o que mantém cada tool
-pequena, previsível e fácil de confiar.
+Os testes que usam ffmpeg são pulados quando o binário não está instalado.
 
 ## Licença
 
-MIT.
+MIT. A fonte DejaVu embutida segue a licença Bitstream Vera
+(`core/fonts/LICENSE-DejaVu.txt`); o modelo YuNet é MIT (OpenCV Zoo).

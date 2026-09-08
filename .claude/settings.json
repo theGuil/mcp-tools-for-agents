@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR\"/scripts/install-mcp-tools.sh",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}
