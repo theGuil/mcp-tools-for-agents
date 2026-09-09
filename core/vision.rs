@@ -137,7 +137,7 @@ mod yunet {
     pub const INPUT_SIZE: usize = 640;
     const STRIDES: [usize; 3] = [8, 16, 32];
 
-    pub type Model = TypedRunnableModel<TypedModel>;
+    pub type Model = std::sync::Arc<TypedRunnableModel>;
 
     pub fn load() -> TractResult<Model> {
         let mut cursor = std::io::Cursor::new(super::MODEL_BYTES);
@@ -207,9 +207,10 @@ mod yunet {
             ));
         }
         let view = |index: usize| -> ToolResult<Vec<f32>> {
-            outputs[index]
-                .to_array_view::<f32>()
-                .map(|array| array.iter().copied().collect())
+            let tensor: &Tensor = &outputs[index];
+            tensor
+                .try_as_plain()
+                .and_then(|view| view.as_slice::<f32>().map(<[f32]>::to_vec))
                 .map_err(|error| ToolError::new(format!("YuNet: {error}"), ErrorCode::Unavailable))
         };
         let mut faces = Vec::new();

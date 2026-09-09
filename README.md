@@ -18,11 +18,13 @@ O servidor precisa de **um arquivo**:
 - **FFmpeg e yt-dlp sob demanda.** Se não estiverem no PATH nem ao lado do
   binário, o servidor baixa os builds estáticos oficiais na primeira chamada e
   guarda em uma pasta de cache. Desligue com `MCP_AUTO_DOWNLOAD=false`.
-- **Fonte e modelo embutidos.** A DejaVu Sans Bold (para texto e legenda) e o
-  YuNet (detector de rosto do OpenCV Zoo) vão dentro do executável.
-- **Transcrição e visão nativas.** `transcribe_audio` usa o whisper.cpp
-  (`whisper-rs`) e `smart_crop` roda o YuNet no `tract`, runtime ONNX em Rust
-  puro. Nada de OpenCV instalado.
+- **Fonte e modelos embutidos.** A DejaVu Sans Bold (para texto e legenda), o
+  YuNet (detector de rosto do OpenCV Zoo) e o Silero VAD (detector de fala) vão
+  dentro do executável.
+- **Transcrição, visão e fala nativas.** `transcribe_audio` usa o whisper.cpp
+  (`whisper-rs`); `smart_crop` roda o YuNet e `remove_silence` e
+  `add_background_music` rodam o Silero VAD no `tract`, runtime ONNX em Rust
+  puro. Nada de OpenCV ou onnxruntime instalado.
 - **Mesmos princípios.** Erro que ensina (`{error, code, hint}`), workspace
   como fronteira, jobs em background, resposta sempre tipada, um arquivo por tool.
 
@@ -42,7 +44,7 @@ o cache. Se preferir, coloque `ffmpeg`, `ffprobe` e `yt-dlp` ao lado do
 ### Compilar do fonte
 
 ```bash
-cargo build --release --features full   # binário completo (transcrição + visão)
+cargo build --release --features full   # binário completo (transcrição + visão + fala)
 cargo build --release                   # binário leve, sem os extras
 ```
 
@@ -98,7 +100,7 @@ Linux x86_64 e arm64, macOS Intel e Apple Silicon e Windows, e anexa os pacotes
 | video | `probe_video` | Duração, resolução, fps, codecs |
 | video | `cut_video` | Recorta um trecho, com ou sem re-encode |
 | video | `concat_videos` | Junta vídeos em sequência, com corte seco ou 20 transições (fade, wipe, slide...) |
-| video | `remove_silence` | Corta as pausas em que ninguém fala, com limiar em dB e margem |
+| video | `remove_silence` | Corta as pausas em que ninguém fala, reconhecendo voz por rede neural (Silero VAD) ou por limiar em dB |
 | video | `detect_scenes` | Encontra mudanças de cena |
 | video | `extract_frame` | Salva um frame como imagem |
 | video | `add_text_overlay` | Escreve título ou descrição sobre a imagem |
@@ -110,14 +112,14 @@ Linux x86_64 e arm64, macOS Intel e Apple Silicon e Windows, e anexa os pacotes
 | video | `list_templates` | Lista os templates visuais disponíveis |
 | video | `apply_template` | Shorts 9:16, quadrado, 16:9, título de abertura, marca d'água |
 | video | `add_banner` | Faixa com fundo colorido e texto no topo ou rodapé, o tempo todo ou num intervalo |
-| video | `add_background_music` | Música de fundo em loop, com fade e ducking automático quando há fala |
+| video | `add_background_music` | Música de fundo em loop, com fade e ducking de `duck_db` guiado pela fala (Silero VAD) |
 | video | `add_fade` | Fade de entrada e saída na imagem e no som |
 | video | `change_speed` | Acelera ou desacelera o vídeo todo ou um trecho, mantendo o tom da voz |
 | video | `zoom_video` | Punch-in de impacto ou zoom progressivo (Ken Burns) em um trecho |
-| video | `create_dynamic_subtitles` | Legenda animada palavra por palavra (estilo TikTok) em .ass |
+| video | `create_dynamic_subtitles` | Legenda animada palavra por palavra em .ass, com presets (hormozi, boxed, karaoke, pop, clean, neon), fonte, contorno e sombra |
 | video | `create_thumbnail` | Capa do vídeo com título grande, nos tamanhos de YouTube, Shorts e feed |
 | video | `smart_crop` | Reenquadra 16:9 para 9:16 seguindo o rosto de quem fala (feature `vision`) |
-| video | `export_for_platform` | Codifica o vídeo final com o preset de TikTok, Reels, Shorts, YouTube ou X |
+| video | `export_for_platform` | Codifica o vídeo final com o preset de TikTok, Reels, Shorts, YouTube ou X, em H.264, H.265 ou AV1, pela placa de vídeo quando há uma |
 | audio | `extract_audio` | Separa a trilha de áudio |
 | audio | `transcribe_audio` | Transcreve fala com timestamps por trecho e por palavra (feature `transcribe`) |
 | audio | `normalize_audio` | Normaliza o volume para o loudness da plataforma (EBU R128, duas passadas) |
@@ -147,6 +149,7 @@ próprias). Ele os procura nesta ordem e para na primeira que encontrar:
 | yt-dlp | release oficial no GitHub (executável standalone, sem Python) | primeiro `download_video` / `get_video_info` |
 | modelo Whisper (`ggml-<size>.bin`) | Hugging Face, repositório `ggerganov/whisper.cpp` | primeiro `transcribe_audio` com aquele `model_size` |
 | fonte DejaVu | embutida; gravada no cache só se o sistema não tiver fonte | primeira tool com texto |
+| modelos YuNet e Silero VAD | embutidos no binário (`core/models`) | nunca baixados |
 
 Cache padrão: `~/.cache/mcp-tools-for-agents` (Linux), `~/Library/Caches/mcp-tools-for-agents`
 (macOS), `%LOCALAPPDATA%\mcp-tools-for-agents` (Windows). Para um pacote 100% offline,
@@ -177,16 +180,22 @@ toca e aplica tudo em um único passo do ffmpeg. Cada efeito vem de `query`
 
 ### Features opcionais
 
-Duas tools dependem de bibliotecas pesadas, ligadas por feature do Cargo:
+Algumas tools dependem de bibliotecas pesadas, ligadas por feature do Cargo:
 
 ```bash
 cargo build --release --features transcribe   # whisper-rs: transcribe_audio
 cargo build --release --features vision       # tract + YuNet: smart_crop com mode="face"
-cargo build --release --features full         # as duas (é o que a release publica)
+cargo build --release --features vad          # tract + Silero VAD: remove_silence e ducking com method="vad"
+cargo build --release --features full         # as três (é o que a release publica)
 ```
 
 Sem a feature, a tool continua registrada e devolve um erro `unavailable`
-explicando como habilitar; `smart_crop` segue funcionando com `mode="center"`.
+explicando como habilitar; `smart_crop` segue funcionando com `mode="center"` e
+`remove_silence` e `add_background_music` com o limiar de dB (`method="db"`).
+
+O modelo do Silero VAD em `core/models/silero_vad_16k.onnx` é o oficial (16 kHz,
+opset 15) com os nós `If` resolvidos para forma fixa, que o `tract` não traduz;
+`scripts/prepare-silero-vad.py` regenera o arquivo a partir do original.
 
 ## Configuração
 

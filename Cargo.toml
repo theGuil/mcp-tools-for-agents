@@ -27,7 +27,9 @@ default = []
 # Extras opcionais, espelhando os extras do pyproject.toml.
 transcribe = ["dep:whisper-rs"]
 vision = ["dep:tract-onnx", "dep:image"]
-full = ["transcribe", "vision"]
+# Silero VAD (tract-onnx): remove_silence e ducking guiados por detecção de fala.
+vad = ["dep:tract-onnx"]
+full = ["transcribe", "vision", "vad"]
 
 [dependencies]
 # SDK oficial do MCP em Rust: transporte stdio e roteamento de tools.
@@ -49,7 +51,7 @@ lzma-rs = "0.3"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 # Extras opcionais.
 whisper-rs = { version = "0.15", optional = true }
-tract-onnx = { version = "0.21", optional = true }
+tract-onnx = { version = "0.23", optional = true }
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"], optional = true }
 
 [dev-dependencies]

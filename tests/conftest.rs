@@ -120,3 +120,33 @@ pub fn sample_video(workspace: &Workspace) -> String {
     assert!(status.success(), "ffmpeg não gerou o vídeo de exemplo");
     "sample.mp4".to_string()
 }
+
+/// Amostras 16 kHz mono do fixture `tests/fixtures/speech_gap.wav`: voz real
+/// em 0-2.5 s e 4-6.5 s, com 1.5 s de silêncio no meio.
+pub fn speech_samples() -> Vec<f32> {
+    let bytes = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/speech_gap.wav"
+    ))
+    .expect("fixture speech_gap.wav");
+    mcp_tools::core::vad::pcm16_to_f32(wav_data(&bytes))
+}
+
+/// Localiza o chunk `data` de um WAV PCM.
+fn wav_data(bytes: &[u8]) -> &[u8] {
+    let mut offset = 12;
+    while offset + 8 <= bytes.len() {
+        let id = &bytes[offset..offset + 4];
+        let size = u32::from_le_bytes([
+            bytes[offset + 4],
+            bytes[offset + 5],
+            bytes[offset + 6],
+            bytes[offset + 7],
+        ]) as usize;
+        if id == b"data" {
+            return &bytes[offset + 8..(offset + 8 + size).min(bytes.len())];
+        }
+        offset += 8 + size + (size % 2);
+    }
+    panic!("WAV sem chunk data");
+}
