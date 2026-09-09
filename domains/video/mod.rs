@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::domains::{McpServer, Runtime};
 
+pub mod background_light;
 pub mod background_music;
 pub mod banner;
 pub mod burn_subtitles;
@@ -45,6 +46,7 @@ pub fn register(mcp: &mut McpServer, runtime: &Arc<Runtime>) {
     template::register(mcp, runtime);
     banner::register(mcp, runtime);
     background_music::register(mcp, runtime);
+    background_light::register(mcp, runtime);
     fade::register(mcp, runtime);
     speed::register(mcp, runtime);
     zoom::register(mcp, runtime);
