@@ -113,8 +113,9 @@ cargo test                              # testes ffmpeg são pulados se o binár
 - Rust estável (1.85+), edição 2021
 - `rmcp` (SDK oficial do MCP), `tokio`, `serde`/`schemars`, `ureq` (rustls)
 - FFmpeg/FFprobe e yt-dlp como executáveis externos, localizados ou baixados por `core/binaries.rs`
-- Features opcionais: `transcribe` (whisper-rs / whisper.cpp) e `vision` (tract-onnx +
-  modelo YuNet embutido em `core/models`); `full` liga as duas
+- Features opcionais: `transcribe` (whisper-rs / whisper.cpp), `vision` (tract-onnx +
+  modelo YuNet embutido em `core/models`) e `vad` (tract-onnx + Silero VAD embutido);
+  `full` liga as três
 - `cargo fmt`, `cargo clippy -D warnings` e `cargo test` precisam passar antes de commitar.
 
 ## Idioma

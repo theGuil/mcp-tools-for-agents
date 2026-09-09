@@ -13,9 +13,16 @@ use crate::domains::{McpServer, Runtime};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SubtitleStyle {
+    /// O bloco fica visível e a palavra falada muda de cor e cresce.
     Highlight,
+    /// Uma palavra de cada vez, grande, com pop.
     Word,
+    /// O bloco inteiro aparece de uma vez, com fade.
     Block,
+    /// Karaokê: a cor preenche cada palavra da esquerda para a direita enquanto é dita.
+    Karaoke,
+    /// A palavra falada ganha uma tarja colorida atrás (estilo CapCut).
+    Box,
 }
 
 /// Posição vertical da legenda.
@@ -38,11 +45,31 @@ impl SubtitlePosition {
     }
 }
 
+/// Visual pronto, no padrão dos cortes que mais circulam.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum SubtitlePreset {
+    /// Maiúsculas grandes, 3 palavras, destaque amarelo, contorno grosso e
+    /// sombra (cortes de podcast e "dinheiro/negócios").
+    Hormozi,
+    /// Palavra falada com tarja colorida atrás, 4 palavras, centro (CapCut).
+    Boxed,
+    /// Preenchimento da esquerda para a direita, 5 palavras, rodapé (clipes musicais e reels).
+    Karaoke,
+    /// Uma palavra gigante por vez, com pop (ganchos e frases de impacto).
+    Pop,
+    /// Bloco discreto no rodapé, sem maiúsculas, contorno fino (documental e corporativo).
+    Clean,
+    /// Destaque verde-neon com contorno colorido e brilho (gaming e tech).
+    Neon,
+}
+
 const MAX_WORDS: i64 = 12;
 const MIN_WORD_GAP: f64 = 0.05;
 const HEX_LEN: usize = 6;
 const DEFAULT_WIDTH: i64 = 1080;
 const DEFAULT_HEIGHT: i64 = 1920;
+const DEFAULT_FONT: &str = "DejaVu Sans";
 
 /// Uma palavra com seus tempos (mesmo formato de transcribe_audio).
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
@@ -57,10 +84,12 @@ pub struct WordTiming {
 pub struct CreateDynamicSubtitlesResult {
     pub output: String,
     pub style: SubtitleStyle,
+    pub preset: Option<SubtitlePreset>,
     pub words: usize,
     pub groups: usize,
     pub duration: f64,
     pub play_res: String,
+    pub font_size: i64,
 }
 
 /// Converte `#RRGGBB` para o formato `&H00BBGGRR` do ASS.
@@ -180,51 +209,93 @@ fn word_windows(group: &[WordTiming]) -> Vec<(f64, f64)> {
     windows
 }
 
-fn events(
-    groups: &[Vec<WordTiming>],
-    style: SubtitleStyle,
-    highlight: &str,
-    text_color: &str,
-) -> Vec<String> {
+/// Cores e medidas já convertidas para o ASS, usadas ao montar os eventos.
+struct Palette {
+    text: String,
+    highlight: String,
+    outline: String,
+    highlight_scale: i64,
+    box_border: f64,
+}
+
+fn events(groups: &[Vec<WordTiming>], style: SubtitleStyle, palette: &Palette) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
+    let Palette {
+        text: text_color,
+        highlight,
+        outline: outline_color,
+        highlight_scale: scale,
+        box_border,
+    } = palette;
     for group in groups {
         let windows = word_windows(group);
-        if style == SubtitleStyle::Block {
-            let start = windows.first().map_or(0.0, |w| w.0);
-            let end = group.iter().map(|w| w.end).fold(f64::MIN, f64::max);
-            let text = group
-                .iter()
-                .map(|w| escape_ass(&w.word))
-                .collect::<Vec<_>>()
-                .join(" ");
-            lines.push(dialogue(start, end, &format!("{{\\fad(80,80)}}{text}")));
-            continue;
-        }
-        for (index, (start, end)) in windows.iter().enumerate() {
-            let text = if style == SubtitleStyle::Word {
-                format!(
-                    "{{\\fscx85\\fscy85\\t(0,70,\\fscx100\\fscy100)}}{}",
-                    escape_ass(&group[index].word)
-                )
-            } else {
-                let parts: Vec<String> = group
+        let group_start = windows.first().map_or(0.0, |w| w.0);
+        let group_end = group.iter().map(|w| w.end).fold(f64::MIN, f64::max);
+        match style {
+            SubtitleStyle::Block => {
+                let text = group
                     .iter()
-                    .enumerate()
-                    .map(|(pos, word)| {
-                        let escaped = escape_ass(&word.word);
-                        if pos == index {
-                            format!(
-                                "{{\\c{highlight}&\\fscx108\\fscy108}}{escaped}\
-                                 {{\\c{text_color}&\\fscx100\\fscy100}}"
-                            )
-                        } else {
-                            escaped
-                        }
-                    })
-                    .collect();
-                parts.join(" ")
-            };
-            lines.push(dialogue(*start, *end, &text));
+                    .map(|w| escape_ass(&w.word))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                lines.push(dialogue(
+                    group_start,
+                    group_end,
+                    &format!("{{\\fad(80,80)}}{text}"),
+                ));
+            }
+            SubtitleStyle::Karaoke => {
+                // \kf preenche da SecondaryColour para a PrimaryColour ao longo da
+                // duração; aqui a primária vira a cor de destaque e a secundária o texto.
+                let mut text = format!("{{\\1c{highlight}&\\2c{text_color}&}}");
+                for (index, (start, end)) in windows.iter().enumerate() {
+                    let centis = ((end - start) * 100.0).round().max(1.0) as i64;
+                    if index > 0 {
+                        text.push(' ');
+                    }
+                    text.push_str(&format!(
+                        "{{\\kf{centis}}}{}",
+                        escape_ass(&group[index].word)
+                    ));
+                }
+                lines.push(dialogue(group_start, group_end, &text));
+            }
+            SubtitleStyle::Word => {
+                for (index, (start, end)) in windows.iter().enumerate() {
+                    let text = format!(
+                        "{{\\fscx85\\fscy85\\t(0,70,\\fscx{scale}\\fscy{scale})\
+                         \\t(70,140,\\fscx100\\fscy100)}}{}",
+                        escape_ass(&group[index].word)
+                    );
+                    lines.push(dialogue(*start, *end, &text));
+                }
+            }
+            SubtitleStyle::Highlight | SubtitleStyle::Box => {
+                for (index, (start, end)) in windows.iter().enumerate() {
+                    let parts: Vec<String> = group
+                        .iter()
+                        .enumerate()
+                        .map(|(pos, word)| {
+                            let escaped = escape_ass(&word.word);
+                            if pos != index {
+                                return escaped;
+                            }
+                            if style == SubtitleStyle::Box {
+                                format!(
+                                    "{{\\bord{box_border}\\3c{highlight}&\\shad0}}{escaped}\
+                                     {{\\r}}"
+                                )
+                            } else {
+                                format!(
+                                    "{{\\c{highlight}&\\fscx{scale}\\fscy{scale}}}{escaped}\
+                                     {{\\c{text_color}&\\3c{outline_color}&\\fscx100\\fscy100}}"
+                                )
+                            }
+                        })
+                        .collect();
+                    lines.push(dialogue(*start, *end, &parts.join(" ")));
+                }
+            }
         }
     }
     lines
@@ -244,10 +315,18 @@ pub struct AssOptions<'a> {
     pub style: SubtitleStyle,
     pub max_words: usize,
     pub max_gap: f64,
+    pub font_name: &'a str,
     pub font_size: i64,
+    pub bold: bool,
     pub text_color: &'a str,
     pub highlight_color: &'a str,
     pub outline_color: &'a str,
+    /// Espessura do contorno, em pixels da resolução do vídeo.
+    pub outline: f64,
+    /// Deslocamento da sombra, em pixels (0 desliga).
+    pub shadow: f64,
+    /// Escala (%) da palavra em destaque nos estilos highlight e word.
+    pub highlight_scale: i64,
     pub position: SubtitlePosition,
     pub uppercase: bool,
     pub width: i64,
@@ -269,8 +348,13 @@ pub fn build_ass(
     let highlight = ass_color(options.highlight_color, "highlight_color")?;
     let outline = ass_color(options.outline_color, "outline_color")?;
     let (width, height, font_size) = (options.width, options.height, options.font_size);
-    let margin_v = (height as f64 * 0.18) as i64;
+    let margin_v = match options.position {
+        SubtitlePosition::Center => 0,
+        SubtitlePosition::Top | SubtitlePosition::Bottom => (height as f64 * 0.16) as i64,
+    };
     let margin_h = (width as f64 * 0.06) as i64;
+    // Sombra escura semitransparente: some com shadow=0.
+    let back = "&H80000000";
     let header = format!(
         "[Script Info]\n\
          ScriptType: v4.00+\n\
@@ -282,15 +366,24 @@ pub fn build_ass(
          Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, \
          BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, \
          BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-         Style: Default,DejaVu Sans,{font_size},{primary},{primary},{outline},&H80000000,\
-         -1,0,0,0,100,100,0,0,1,{},{},{},{margin_h},{margin_h},{margin_v},1\n\n\
+         Style: Default,{font},{font_size},{primary},{primary},{outline},{back},\
+         {bold},0,0,0,100,100,0,0,1,{outline_px},{shadow_px},{alignment},{margin_h},{margin_h},{margin_v},1\n\n\
          [Events]\n\
          Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
-        (font_size / 14).max(2),
-        (font_size / 30).max(1),
-        options.position.alignment(),
+        font = options.font_name,
+        bold = if options.bold { -1 } else { 0 },
+        outline_px = format_px(options.outline),
+        shadow_px = format_px(options.shadow),
+        alignment = options.position.alignment(),
     );
-    let lines = events(&groups, options.style, &highlight, &primary);
+    let palette = Palette {
+        text: primary,
+        highlight,
+        outline,
+        highlight_scale: options.highlight_scale,
+        box_border: round_to((f64::from(font_size as i32) * 0.32).max(4.0), 1),
+    };
+    let lines = events(&groups, options.style, &palette);
     let duration = cleaned.iter().map(|w| w.end).fold(f64::MIN, f64::max);
     Ok((
         format!("{header}{}\n", lines.join("\n")),
@@ -298,6 +391,15 @@ pub fn build_ass(
         groups.len(),
         duration,
     ))
+}
+
+fn format_px(value: f64) -> String {
+    let rounded = round_to(value.max(0.0), 1);
+    if rounded.fract() == 0.0 {
+        format!("{}", rounded as i64)
+    } else {
+        format!("{rounded}")
+    }
 }
 
 /// Parâmetros da tool.
@@ -310,78 +412,83 @@ pub struct Params {
     /// Vídeo alvo, para ajustar tamanho e posição à resolução dele.
     #[serde(default)]
     pub video_path: Option<String>,
-    /// highlight, word ou block.
-    #[serde(default = "default_style")]
-    pub style: SubtitleStyle,
+    /// Visual pronto: hormozi, boxed, karaoke, pop, clean ou neon. Define
+    /// estilo, cores, tamanho, contorno e posição de uma vez; qualquer outro
+    /// parâmetro informado junto sobrepõe o valor do preset.
+    #[serde(default)]
+    pub preset: Option<SubtitlePreset>,
+    /// highlight, word, block, karaoke ou box. Padrão highlight.
+    #[serde(default)]
+    pub style: Option<SubtitleStyle>,
     /// Máximo de palavras por bloco (3 a 5 é o usual).
-    #[serde(default = "default_max_words")]
-    pub max_words: i64,
+    #[serde(default)]
+    pub max_words: Option<i64>,
     /// Pausa em segundos que força um bloco novo.
     #[serde(default = "default_max_gap")]
     pub max_gap: f64,
-    /// Tamanho da fonte. Calculado pela altura do vídeo se omitido.
+    /// Nome da fonte instalada no sistema (ex: "Montserrat", "Arial Black").
+    /// Padrão "DejaVu Sans", que vai embutida e existe em qualquer máquina.
+    #[serde(default)]
+    pub font_name: Option<String>,
+    /// Tamanho da fonte em pixels. Calculado pela altura do vídeo se omitido.
     #[serde(default)]
     pub font_size: Option<i64>,
+    /// Negrito. Padrão true.
+    #[serde(default)]
+    pub bold: Option<bool>,
     /// Cor do texto em hexadecimal, ex: #FFFFFF.
-    #[serde(default = "default_text_color")]
-    pub text_color: String,
-    /// Cor da palavra em destaque, ex: #FFD700 (amarelo) ou #00FF88.
-    #[serde(default = "default_highlight_color")]
-    pub highlight_color: String,
+    #[serde(default)]
+    pub text_color: Option<String>,
+    /// Cor da palavra em destaque (ou da tarja no estilo box), ex: #FFD700 ou #00FF88.
+    #[serde(default)]
+    pub highlight_color: Option<String>,
     /// Cor do contorno, ex: #000000.
-    #[serde(default = "default_outline_color")]
-    pub outline_color: String,
+    #[serde(default)]
+    pub outline_color: Option<String>,
+    /// Espessura do contorno em pixels. Calculada pelo tamanho da fonte se omitida.
+    #[serde(default)]
+    pub outline: Option<f64>,
+    /// Sombra em pixels (0 desliga). Calculada pelo preset se omitida.
+    #[serde(default)]
+    pub shadow: Option<f64>,
     /// top, center ou bottom. center é o padrão em vídeo vertical.
-    #[serde(default = "default_position")]
-    pub position: SubtitlePosition,
-    /// Converte o texto para maiúsculas, como nos cortes virais.
-    #[serde(default = "default_true")]
-    pub uppercase: bool,
-}
-
-fn default_style() -> SubtitleStyle {
-    SubtitleStyle::Highlight
-}
-
-fn default_max_words() -> i64 {
-    4
+    #[serde(default)]
+    pub position: Option<SubtitlePosition>,
+    /// Converte o texto para maiúsculas, como nos cortes virais. Padrão true.
+    #[serde(default)]
+    pub uppercase: Option<bool>,
 }
 
 fn default_max_gap() -> f64 {
     1.0
 }
 
-fn default_text_color() -> String {
-    "#FFFFFF".to_string()
-}
-
-fn default_highlight_color() -> String {
-    "#FFD700".to_string()
-}
-
-fn default_outline_color() -> String {
-    "#000000".to_string()
-}
-
-fn default_position() -> SubtitlePosition {
-    SubtitlePosition::Center
-}
-
-fn default_true() -> bool {
-    true
-}
-
-/// Opções da tool além de `words` e `output`, com os mesmos defaults do Python.
+/// Opções da tool além de `words` e `output`, já resolvidas.
+///
+/// `font_size`, `outline` e `shadow` em `None` são calculados pela altura do
+/// vídeo (`font_scale`, `outline_scale` e `shadow_scale`, frações do tamanho).
 #[derive(Debug, Clone)]
 pub struct DynamicSubtitlesOptions {
     pub video_path: Option<String>,
+    pub preset: Option<SubtitlePreset>,
     pub style: SubtitleStyle,
     pub max_words: i64,
     pub max_gap: f64,
+    pub font_name: String,
     pub font_size: Option<i64>,
+    /// Fração da altura do vídeo usada como tamanho da fonte quando `font_size` é None.
+    pub font_scale: f64,
+    pub bold: bool,
     pub text_color: String,
     pub highlight_color: String,
     pub outline_color: String,
+    pub outline: Option<f64>,
+    /// Fração do tamanho da fonte usada como contorno quando `outline` é None.
+    pub outline_scale: f64,
+    pub shadow: Option<f64>,
+    /// Fração do tamanho da fonte usada como sombra quando `shadow` é None.
+    pub shadow_scale: f64,
+    pub highlight_scale: i64,
     pub position: SubtitlePosition,
     pub uppercase: bool,
 }
@@ -390,16 +497,150 @@ impl Default for DynamicSubtitlesOptions {
     fn default() -> Self {
         Self {
             video_path: None,
-            style: default_style(),
-            max_words: default_max_words(),
+            preset: None,
+            style: SubtitleStyle::Highlight,
+            max_words: 4,
             max_gap: default_max_gap(),
+            font_name: DEFAULT_FONT.to_string(),
             font_size: None,
-            text_color: default_text_color(),
-            highlight_color: default_highlight_color(),
-            outline_color: default_outline_color(),
-            position: default_position(),
+            font_scale: 0.045,
+            bold: true,
+            text_color: "#FFFFFF".to_string(),
+            highlight_color: "#FFD700".to_string(),
+            outline_color: "#000000".to_string(),
+            outline: None,
+            outline_scale: 0.07,
+            shadow: None,
+            shadow_scale: 0.035,
+            highlight_scale: 108,
+            position: SubtitlePosition::Center,
             uppercase: true,
         }
+    }
+}
+
+impl DynamicSubtitlesOptions {
+    /// Opções de um preset visual.
+    pub fn preset(preset: SubtitlePreset) -> Self {
+        let base = Self {
+            preset: Some(preset),
+            ..Self::default()
+        };
+        match preset {
+            SubtitlePreset::Hormozi => Self {
+                style: SubtitleStyle::Highlight,
+                max_words: 3,
+                font_scale: 0.058,
+                highlight_color: "#FFD700".to_string(),
+                outline_scale: 0.1,
+                shadow_scale: 0.06,
+                highlight_scale: 112,
+                position: SubtitlePosition::Center,
+                uppercase: true,
+                ..base
+            },
+            SubtitlePreset::Boxed => Self {
+                style: SubtitleStyle::Box,
+                max_words: 4,
+                font_scale: 0.05,
+                highlight_color: "#7C3AED".to_string(),
+                outline_scale: 0.06,
+                shadow_scale: 0.0,
+                position: SubtitlePosition::Center,
+                uppercase: true,
+                ..base
+            },
+            SubtitlePreset::Karaoke => Self {
+                style: SubtitleStyle::Karaoke,
+                max_words: 5,
+                font_scale: 0.048,
+                highlight_color: "#FF2D95".to_string(),
+                outline_scale: 0.07,
+                shadow_scale: 0.03,
+                position: SubtitlePosition::Bottom,
+                uppercase: false,
+                ..base
+            },
+            SubtitlePreset::Pop => Self {
+                style: SubtitleStyle::Word,
+                max_words: 1,
+                font_scale: 0.075,
+                outline_scale: 0.09,
+                shadow_scale: 0.05,
+                highlight_scale: 115,
+                position: SubtitlePosition::Center,
+                uppercase: true,
+                ..base
+            },
+            SubtitlePreset::Clean => Self {
+                style: SubtitleStyle::Block,
+                max_words: 6,
+                font_scale: 0.04,
+                bold: false,
+                outline_scale: 0.05,
+                shadow_scale: 0.0,
+                position: SubtitlePosition::Bottom,
+                uppercase: false,
+                ..base
+            },
+            SubtitlePreset::Neon => Self {
+                style: SubtitleStyle::Highlight,
+                max_words: 4,
+                font_scale: 0.052,
+                highlight_color: "#39FF14".to_string(),
+                outline_color: "#0A2A0A".to_string(),
+                outline_scale: 0.09,
+                shadow_scale: 0.0,
+                highlight_scale: 110,
+                position: SubtitlePosition::Center,
+                uppercase: true,
+                ..base
+            },
+        }
+    }
+
+    /// Parte do preset (ou do padrão) e aplica só o que o agente informou.
+    pub fn from_params(params: &Params) -> Self {
+        let mut options = params.preset.map_or_else(Self::default, Self::preset);
+        options.video_path = params.video_path.clone();
+        options.max_gap = params.max_gap;
+        if let Some(style) = params.style {
+            options.style = style;
+        }
+        if let Some(max_words) = params.max_words {
+            options.max_words = max_words;
+        }
+        if let Some(font_name) = &params.font_name {
+            options.font_name = font_name.clone();
+        }
+        if let Some(font_size) = params.font_size {
+            options.font_size = Some(font_size);
+        }
+        if let Some(bold) = params.bold {
+            options.bold = bold;
+        }
+        if let Some(color) = &params.text_color {
+            options.text_color = color.clone();
+        }
+        if let Some(color) = &params.highlight_color {
+            options.highlight_color = color.clone();
+        }
+        if let Some(color) = &params.outline_color {
+            options.outline_color = color.clone();
+        }
+        if let Some(outline) = params.outline {
+            options.outline = Some(outline);
+        }
+        if let Some(shadow) = params.shadow {
+            options.shadow = Some(shadow);
+        }
+        if let Some(position) = params.position {
+            options.position = position;
+        }
+        if let Some(uppercase) = params.uppercase {
+            options.uppercase = uppercase;
+        }
+        options
     }
 }
 
@@ -438,6 +679,18 @@ pub fn create_dynamic_subtitles(
             ErrorCode::InvalidArgument,
         ));
     }
+    if options.font_name.trim().is_empty() {
+        return Err(ToolError::new(
+            "font_name não pode ser vazio.",
+            ErrorCode::InvalidArgument,
+        ));
+    }
+    if options.outline.is_some_and(|v| v < 0.0) || options.shadow.is_some_and(|v| v < 0.0) {
+        return Err(ToolError::new(
+            "outline e shadow não podem ser negativos.",
+            ErrorCode::InvalidArgument,
+        ));
+    }
     let (mut width, mut height) = (DEFAULT_WIDTH, DEFAULT_HEIGHT);
     if let Some(video_path) = &options.video_path {
         let info = runtime
@@ -452,23 +705,32 @@ pub fn create_dynamic_subtitles(
     }
     let size = options
         .font_size
-        .unwrap_or_else(|| ((height as f64 * 0.045) as i64).max(20));
+        .unwrap_or_else(|| ((height as f64 * options.font_scale) as i64).max(20));
     if size <= 0 {
         return Err(ToolError::new(
             "font_size deve ser maior que zero.",
             ErrorCode::InvalidArgument,
         ));
     }
+    let outline = options
+        .outline
+        .unwrap_or_else(|| (size as f64 * options.outline_scale).max(1.0));
+    let shadow = options.shadow.unwrap_or(size as f64 * options.shadow_scale);
     let (content, count, groups, duration) = build_ass(
         words,
         &AssOptions {
             style: options.style,
             max_words: options.max_words as usize,
             max_gap: options.max_gap,
+            font_name: &options.font_name,
             font_size: size,
+            bold: options.bold,
             text_color: &options.text_color,
             highlight_color: &options.highlight_color,
             outline_color: &options.outline_color,
+            outline,
+            shadow,
+            highlight_scale: options.highlight_scale,
             position: options.position,
             uppercase: options.uppercase,
             width,
@@ -482,10 +744,12 @@ pub fn create_dynamic_subtitles(
     Ok(CreateDynamicSubtitlesResult {
         output: runtime.workspace.relative(&target),
         style: options.style,
+        preset: options.preset,
         words: count,
         groups,
         duration: round_to(duration, 3),
         play_res: format!("{width}x{height}"),
+        font_size: size,
     })
 }
 
@@ -505,28 +769,26 @@ pub fn register(mcp: &mut McpServer, runtime: &Arc<Runtime>) {
          Fluxo: transcribe_audio (word_timestamps=true) -> junte as words de todos os \
          segments em uma lista -> create_dynamic_subtitles -> burn_subtitles. As \
          palavras são agrupadas em blocos curtos (max_words) que quebram nas pausas \
-         (max_gap). Estilos:\n\
-         - \"highlight\": o bloco fica visível e a palavra falada no momento muda de cor \
-         e cresce um pouco (o mais usado em cortes de podcast).\n\
-         - \"word\": aparece uma palavra de cada vez, grande, com efeito de pop.\n\
-         - \"block\": o bloco inteiro aparece de uma vez, sem destaque, com fade.\n\
+         (max_gap).\n\n\
+         O jeito mais rápido de ter um resultado profissional é escolher um preset:\n\
+         - \"hormozi\": maiúsculas grandes, 3 palavras, destaque amarelo, contorno grosso \
+         e sombra (cortes de podcast, negócios, motivação).\n\
+         - \"boxed\": a palavra falada ganha uma tarja roxa atrás (visual CapCut).\n\
+         - \"karaoke\": a cor preenche cada palavra da esquerda para a direita, no rodapé.\n\
+         - \"pop\": uma palavra gigante por vez, com pop (ganchos e frases de impacto).\n\
+         - \"clean\": bloco discreto no rodapé, sem maiúsculas (documental, corporativo).\n\
+         - \"neon\": destaque verde-neon (gaming e tech).\n\
+         Qualquer parâmetro informado junto do preset sobrepõe o valor dele (ex.: \
+         preset=hormozi com highlight_color=#00FF88). Sem preset, os estilos são \
+         highlight (bloco visível, palavra falada muda de cor e cresce), word (uma \
+         por vez), block (bloco inteiro com fade), karaoke e box.\n\n\
          Informe video_path para a legenda ser dimensionada para a resolução certa \
-         (padrão 1080x1920). O tamanho da fonte é calculado pela altura do vídeo se \
-         font_size for omitido. Depois grave no vídeo com burn_subtitles, que \
-         respeita o estilo do .ass.",
+         (padrão 1080x1920): fonte, contorno e sombra são calculados em proporção à \
+         altura do vídeo, então o mesmo preset fica igual em 720p e 4K. font_name \
+         aceita qualquer fonte instalada na máquina. Depois grave no vídeo com \
+         burn_subtitles, que respeita o estilo do .ass.",
         move |params: Params| {
-            let options = DynamicSubtitlesOptions {
-                video_path: params.video_path,
-                style: params.style,
-                max_words: params.max_words,
-                max_gap: params.max_gap,
-                font_size: params.font_size,
-                text_color: params.text_color,
-                highlight_color: params.highlight_color,
-                outline_color: params.outline_color,
-                position: params.position,
-                uppercase: params.uppercase,
-            };
+            let options = DynamicSubtitlesOptions::from_params(&params);
             guarded(create_dynamic_subtitles(
                 &runtime,
                 &params.words,

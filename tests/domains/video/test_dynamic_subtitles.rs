@@ -168,3 +168,128 @@ fn test_dynamic_subtitles_burn() {
     assert!(result.styled_by_file);
     assert_eq!(result.output, "sample_subtitled.mp4");
 }
+
+#[test]
+fn test_create_dynamic_subtitles_karaoke_and_box() {
+    let rt = runtime();
+    let karaoke = create_dynamic_subtitles(
+        &rt.runtime,
+        &words(),
+        "k.ass",
+        &DynamicSubtitlesOptions {
+            style: SubtitleStyle::Karaoke,
+            max_gap: 0.5,
+            ..DynamicSubtitlesOptions::default()
+        },
+    )
+    .unwrap();
+    let content = std::fs::read_to_string(rt.runtime.workspace.existing("k.ass").unwrap()).unwrap();
+    // Um evento por bloco, com \kf por palavra.
+    assert_eq!(karaoke.groups, content.matches("Dialogue:").count());
+    assert_eq!(content.matches("\\kf").count(), 6);
+    assert!(content.contains("{\\kf40}OLÁ"));
+    let boxed = create_dynamic_subtitles(
+        &rt.runtime,
+        &words(),
+        "b.ass",
+        &DynamicSubtitlesOptions {
+            style: SubtitleStyle::Box,
+            highlight_color: "#7C3AED".to_string(),
+            ..DynamicSubtitlesOptions::default()
+        },
+    )
+    .unwrap();
+    let content = std::fs::read_to_string(rt.runtime.workspace.existing("b.ass").unwrap()).unwrap();
+    assert_eq!(boxed.words, 6);
+    assert!(content.contains("\\3c&H00ED3A7C&"));
+    assert!(content.contains("{\\r}"));
+}
+
+#[test]
+fn test_create_dynamic_subtitles_presets() {
+    use mcp_tools::domains::video::dynamic_subtitles::SubtitlePreset;
+    let rt = runtime();
+    let presets = [
+        SubtitlePreset::Hormozi,
+        SubtitlePreset::Boxed,
+        SubtitlePreset::Karaoke,
+        SubtitlePreset::Pop,
+        SubtitlePreset::Clean,
+        SubtitlePreset::Neon,
+    ];
+    for preset in presets {
+        let options = DynamicSubtitlesOptions::preset(preset);
+        let output = format!("{preset:?}.ass").to_lowercase();
+        let result = create_dynamic_subtitles(&rt.runtime, &words(), &output, &options).unwrap();
+        assert_eq!(result.preset, Some(preset));
+        assert_eq!(result.style, options.style);
+        let content =
+            std::fs::read_to_string(rt.runtime.workspace.existing(&output).unwrap()).unwrap();
+        assert!(content.contains("[Events]"));
+        assert!(content.contains("Style: Default,DejaVu Sans,"));
+    }
+    // Hormozi: 3 palavras por bloco, maiúsculas, fonte maior que o padrão.
+    let hormozi = DynamicSubtitlesOptions::preset(SubtitlePreset::Hormozi);
+    let result = create_dynamic_subtitles(&rt.runtime, &words(), "h.ass", &hormozi).unwrap();
+    assert!(result.font_size > (1920.0 * 0.045) as i64);
+    let content = std::fs::read_to_string(rt.runtime.workspace.existing("h.ass").unwrap()).unwrap();
+    assert!(content.contains("OLÁ"));
+    // Clean: sem maiúsculas, sem negrito, no rodapé (alinhamento 2).
+    let clean = DynamicSubtitlesOptions::preset(SubtitlePreset::Clean);
+    create_dynamic_subtitles(&rt.runtime, &words(), "c.ass", &clean).unwrap();
+    let content = std::fs::read_to_string(rt.runtime.workspace.existing("c.ass").unwrap()).unwrap();
+    assert!(content.contains("olá"));
+    assert!(content.contains(",0,0,0,0,100,100,0,0,1,"));
+    assert!(content.contains(",2,64,64,307,1\n"));
+}
+
+#[test]
+fn test_create_dynamic_subtitles_invalid_style_values() {
+    let rt = runtime();
+    let error = create_dynamic_subtitles(
+        &rt.runtime,
+        &words(),
+        "a.ass",
+        &DynamicSubtitlesOptions {
+            outline: Some(-1.0),
+            ..DynamicSubtitlesOptions::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error.code, ErrorCode::InvalidArgument);
+    let error = create_dynamic_subtitles(
+        &rt.runtime,
+        &words(),
+        "a.ass",
+        &DynamicSubtitlesOptions {
+            font_name: "  ".to_string(),
+            ..DynamicSubtitlesOptions::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error.code, ErrorCode::InvalidArgument);
+}
+
+#[test]
+fn test_dynamic_subtitles_presets_burn() {
+    use mcp_tools::domains::video::dynamic_subtitles::SubtitlePreset;
+    skip_without_ffmpeg!();
+    let rt = runtime();
+    let sample = sample_video(&rt.runtime.workspace);
+    for preset in [SubtitlePreset::Boxed, SubtitlePreset::Karaoke] {
+        let options = DynamicSubtitlesOptions {
+            video_path: Some(sample.clone()),
+            ..DynamicSubtitlesOptions::preset(preset)
+        };
+        let output = format!("{preset:?}.ass").to_lowercase();
+        let subs = create_dynamic_subtitles(&rt.runtime, &words(), &output, &options).unwrap();
+        let result = unwrap(burn_subtitles(
+            &rt.runtime,
+            &sample,
+            &subs.output,
+            BurnOptions::default(),
+            false,
+        ));
+        assert!(result.styled_by_file);
+    }
+}

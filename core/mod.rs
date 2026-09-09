@@ -14,5 +14,7 @@ pub mod jobs;
 pub mod numbers;
 pub mod paths;
 pub mod process;
+pub mod speech;
+pub mod vad;
 pub mod vision;
 pub mod whisper;

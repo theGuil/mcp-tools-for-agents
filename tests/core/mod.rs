@@ -4,3 +4,4 @@ mod test_fonts;
 mod test_freesound;
 mod test_jobs;
 mod test_paths;
+mod test_vad;

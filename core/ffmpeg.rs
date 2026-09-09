@@ -3,6 +3,7 @@
 //! Toda operação de vídeo e áudio passa por aqui. O restante do código nunca
 //! monta linha de comando nem interpreta saída bruta.
 
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -159,6 +160,27 @@ impl FFmpeg {
         Ok(output.stderr)
     }
 
+    /// Nomes dos encoders de vídeo que este ffmpeg tem compilados (`ffmpeg -encoders`).
+    ///
+    /// Um encoder listado pode ainda falhar na hora (placa ausente, driver
+    /// antigo): quem usa deve tratar a falha e cair para o software.
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorCode::Unavailable`] se o ffmpeg não puder ser executado.
+    pub fn video_encoders(&self) -> ToolResult<HashSet<String>> {
+        let (ffmpeg, _) = self.require()?;
+        let args = ffargs!["-hide_banner", "-nostdin", "-encoders"];
+        let output = process::run(&ffmpeg, &args, self.timeout()).map_err(|error| {
+            ToolError::with_hint(
+                format!("ffmpeg não pôde listar os encoders: {error}"),
+                ErrorCode::Unavailable,
+                "Confira FFMPEG_BIN ou apague a pasta de cache para baixar de novo.",
+            )
+        })?;
+        Ok(parse_encoders(&output.stdout))
+    }
+
     /// Lê metadados de um arquivo de mídia via `ffprobe`.
     ///
     /// # Errors
@@ -201,6 +223,23 @@ impl FFmpeg {
         }
         parse_probe(&output.stdout, path)
     }
+}
+
+/// Extrai os encoders de vídeo da saída de `ffmpeg -encoders`.
+///
+/// Cada linha útil tem a forma ` V....D libx264  descrição`: a primeira letra
+/// das flags é o tipo (`V` vídeo, `A` áudio, `S` legenda).
+pub fn parse_encoders(stdout: &str) -> HashSet<String> {
+    stdout
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let flags = parts.next()?;
+            let name = parts.next()?;
+            (flags.len() == 6 && flags.starts_with('V') && !name.starts_with('='))
+                .then(|| name.to_string())
+        })
+        .collect()
 }
 
 /// Últimos `limit` caracteres de `text`, sem espaços nas pontas.
