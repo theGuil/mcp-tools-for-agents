@@ -96,6 +96,28 @@ alterar uma tool, confira o `.mcp.json`** e atualize-o quando:
 Depois, valide com `/mcp` no Claude Code: o servidor `mcp-tools-for-agents` deve
 aparecer conectado e a tool nova deve estar na lista.
 
+## Permissões: toda tool nova entra no `settings.json`
+
+Sempre que uma **tool (ou comando) nova** for criada ou passar a existir, adicione o
+nome dela na lista `permissions.allow` de `.claude/settings.json`, no formato
+`mcp__mcp-tools-for-agents__<nome_da_tool>`. Sem isso o Claude Code pede aprovação
+manual a cada chamada e as execuções automáticas (rotinas agendadas) travam
+esperando alguém aprovar.
+
+Regras:
+
+- É parte obrigatória de criar uma tool: `mod.rs` → `.mcp.json` → `README.md` →
+  `.claude/settings.json`.
+- Mantenha os coringas `"mcp__mcp-tools-for-agents"` e
+  `"mcp__mcp-tools-for-agents__*"` no topo da lista, **e** o nome explícito de cada
+  tool: nem toda versão do Claude Code respeita o coringa.
+- O mesmo vale para qualquer comando novo de terminal, servidor MCP novo ou tool
+  nativa que a rotina passe a usar.
+- `defaultMode: "bypassPermissions"` só é respeitado nas configurações de usuário
+  (`~/.claude/settings.json`) ou no modo de permissão escolhido na sessão/rotina;
+  no arquivo do projeto ele é ignorado. Por isso a lista `allow` explícita é o que
+  de fato evita os pedidos de permissão.
+
 ## Comandos
 
 ```bash
