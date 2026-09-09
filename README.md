@@ -3,7 +3,7 @@
 **Dê mãos ao seu agente de IA. Um binário, nenhuma instalação.**
 
 Um servidor MCP local, em Rust, que entrega ao seu agente ferramentas reais de
-vídeo, áudio e arquivos. Sem API, sem UI, sem runtime. São 34 tools compiladas em
+vídeo, áudio e arquivos. Sem API, sem UI, sem runtime. São 36 tools compiladas em
 um executável único: baixe o `mcp-tools` da sua plataforma, aponte o host MCP para
 ele e pronto.
 
@@ -116,6 +116,7 @@ Linux x86_64 e arm64, macOS Intel e Apple Silicon e Windows, e anexa os pacotes
 | video | `add_fade` | Fade de entrada e saída na imagem e no som |
 | video | `change_speed` | Acelera ou desacelera o vídeo todo ou um trecho, mantendo o tom da voz |
 | video | `zoom_video` | Punch-in de impacto ou zoom progressivo (Ken Burns) em um trecho |
+| video | `apply_studio_background_light` | Acende uma luz colorida de estúdio no fundo (halo radial, de cima, de baixo ou nas laterais), com presets de cor ou cor própria |
 | video | `stabilize_video` | Tira o tremor de câmera na mão, com o vid.stab em dois passes |
 | video | `create_dynamic_subtitles` | Legenda animada palavra por palavra em .ass, com presets (hormozi, boxed, karaoke, pop, clean, neon), fonte, contorno e sombra |
 | video | `create_thumbnail` | Capa do vídeo com título grande, nos tamanhos de YouTube, Shorts e feed |

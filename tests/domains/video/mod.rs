@@ -1,3 +1,4 @@
+mod test_background_light;
 mod test_background_music;
 mod test_banner;
 mod test_concat;

@@ -13,6 +13,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "add_narration",
     "add_sound_effects",
     "add_text_overlay",
+    "apply_studio_background_light",
     "apply_template",
     "burn_subtitles",
     "change_speed",

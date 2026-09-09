@@ -10,6 +10,7 @@
       "mcp__mcp-tools-for-agents__add_narration",
       "mcp__mcp-tools-for-agents__add_sound_effects",
       "mcp__mcp-tools-for-agents__add_text_overlay",
+      "mcp__mcp-tools-for-agents__apply_studio_background_light",
       "mcp__mcp-tools-for-agents__apply_template",
       "mcp__mcp-tools-for-agents__burn_subtitles",
       "mcp__mcp-tools-for-agents__change_speed",
