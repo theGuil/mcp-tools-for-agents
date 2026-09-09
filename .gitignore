@@ -7,3 +7,7 @@ bin/
 # Dados locais
 workspace/
 .env
+
+# Saída diária da rotina de shorts: vídeo gerado e respostas da API,
+# incluindo URLs de upload assinadas. Nada disso vai para o repositório.
+short-*/

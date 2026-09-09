@@ -1,4 +1,32 @@
 {
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "mcp__mcp-tools-for-agents",
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "NotebookEdit",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "Task",
+      "TodoWrite",
+      "SlashCommand",
+      "Skill"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/root/.cache/mcp-tools-for-agents"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "mcp-tools-for-agents"
+  ],
+  "skipDangerousModePermissionPrompt": true,
   "hooks": {
     "SessionStart": [
       {
