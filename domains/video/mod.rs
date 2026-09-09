@@ -21,6 +21,7 @@ pub mod scenes;
 pub mod smart_crop;
 pub mod sound_effects;
 pub mod speed;
+pub mod stabilize;
 pub mod subtitles;
 pub mod template;
 pub mod text_overlay;
@@ -50,5 +51,6 @@ pub fn register(mcp: &mut McpServer, runtime: &Arc<Runtime>) {
     dynamic_subtitles::register(mcp, runtime);
     thumbnail::register(mcp, runtime);
     smart_crop::register(mcp, runtime);
+    stabilize::register(mcp, runtime);
     export::register(mcp, runtime);
 }

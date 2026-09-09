@@ -12,6 +12,7 @@ mod test_remove_silence_pure;
 mod test_smart_crop;
 mod test_sound_effects;
 mod test_speed;
+mod test_stabilize;
 mod test_subtitles;
 mod test_template;
 mod test_text_overlay;
