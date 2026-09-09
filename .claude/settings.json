@@ -38,6 +38,7 @@
       "mcp__mcp-tools-for-agents__smart_crop",
       "mcp__mcp-tools-for-agents__transcribe_audio",
       "mcp__mcp-tools-for-agents__zoom_video",
+      "mcp__mcp-tools-for-agents__stabilize_video",
       "mcp__Zernio",
       "mcp__Zernio__*",
       "Bash",

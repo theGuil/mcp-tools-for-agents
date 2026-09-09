@@ -1,6 +1,6 @@
 use mcp_tools::core::binaries::Binaries;
 use mcp_tools::core::errors::ErrorCode;
-use mcp_tools::core::ffmpeg::{parse_probe, FFmpeg};
+use mcp_tools::core::ffmpeg::{parse_filters, parse_probe, FFmpeg};
 
 use crate::conftest::{sample_video, workspace, SAMPLE_DURATION};
 use crate::skip_without_ffmpeg;
@@ -49,4 +49,21 @@ fn test_probe_real_file() {
     assert_eq!(info.fps, Some(25.0));
     assert!(info.has_audio);
     assert_eq!(info.video_codec.as_deref(), Some("h264"));
+}
+
+#[test]
+fn test_parse_filters() {
+    let saida = "Filters:\n  T.. = Timeline support\n  ------\n \
+                 .. abench            A->A       Benchmark part of a filtergraph.\n \
+                 .. vidstabdetect     V->V       Extract relative transformations.\n \
+                 .C vidstabtransform  V->V       Transform the frames.\n \
+                 ... anullsrc         |->A       Null audio source.\n";
+    let filtros = parse_filters(saida);
+    assert!(filtros.contains("vidstabdetect"));
+    assert!(filtros.contains("vidstabtransform"));
+    assert!(filtros.contains("abench"));
+    assert!(filtros.contains("anullsrc"));
+    // Linhas de cabeçalho não viram filtro.
+    assert!(!filtros.contains("="));
+    assert!(!filtros.contains("Timeline"));
 }

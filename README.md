@@ -116,6 +116,7 @@ Linux x86_64 e arm64, macOS Intel e Apple Silicon e Windows, e anexa os pacotes
 | video | `add_fade` | Fade de entrada e saída na imagem e no som |
 | video | `change_speed` | Acelera ou desacelera o vídeo todo ou um trecho, mantendo o tom da voz |
 | video | `zoom_video` | Punch-in de impacto ou zoom progressivo (Ken Burns) em um trecho |
+| video | `stabilize_video` | Tira o tremor de câmera na mão, com o vid.stab em dois passes |
 | video | `create_dynamic_subtitles` | Legenda animada palavra por palavra em .ass, com presets (hormozi, boxed, karaoke, pop, clean, neon), fonte, contorno e sombra |
 | video | `create_thumbnail` | Capa do vídeo com título grande, nos tamanhos de YouTube, Shorts e feed |
 | video | `smart_crop` | Reenquadra 16:9 para 9:16 seguindo o rosto de quem fala (feature `vision`) |

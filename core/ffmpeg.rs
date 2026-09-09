@@ -181,6 +181,37 @@ impl FFmpeg {
         Ok(parse_encoders(&output.stdout))
     }
 
+    /// Nomes dos filtros que este ffmpeg tem compilados (`ffmpeg -filters`).
+    ///
+    /// Filtros que vêm de bibliotecas externas (vid.stab, frei0r) só existem
+    /// em builds compilados com a flag correspondente. Consulte antes de montar
+    /// a chamada para devolver um erro claro em vez de deixar o ffmpeg falhar.
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorCode::Unavailable`] se o ffmpeg não puder ser executado.
+    pub fn filters(&self) -> ToolResult<HashSet<String>> {
+        let (ffmpeg, _) = self.require()?;
+        let args = ffargs!["-hide_banner", "-nostdin", "-filters"];
+        let output = process::run(&ffmpeg, &args, self.timeout()).map_err(|error| {
+            ToolError::with_hint(
+                format!("ffmpeg não pôde listar os filtros: {error}"),
+                ErrorCode::Unavailable,
+                "Confira FFMPEG_BIN ou apague a pasta de cache para baixar de novo.",
+            )
+        })?;
+        Ok(parse_filters(&output.stdout))
+    }
+
+    /// Indica se este ffmpeg tem o filtro `name` compilado.
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorCode::Unavailable`] se o ffmpeg não puder ser executado.
+    pub fn has_filter(&self, name: &str) -> ToolResult<bool> {
+        Ok(self.filters()?.contains(name))
+    }
+
     /// Lê metadados de um arquivo de mídia via `ffprobe`.
     ///
     /// # Errors
@@ -238,6 +269,24 @@ pub fn parse_encoders(stdout: &str) -> HashSet<String> {
             let name = parts.next()?;
             (flags.len() == 6 && flags.starts_with('V') && !name.starts_with('='))
                 .then(|| name.to_string())
+        })
+        .collect()
+}
+
+/// Extrai os nomes dos filtros da saída de `ffmpeg -filters`.
+///
+/// Cada linha útil tem a forma ` .. vidstabdetect  V->V  descrição`: as flags,
+/// o nome e a assinatura de entrada/saída, que é o que distingue um filtro das
+/// linhas de cabeçalho.
+pub fn parse_filters(stdout: &str) -> HashSet<String> {
+    stdout
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let _flags = parts.next()?;
+            let name = parts.next()?;
+            let signature = parts.next()?;
+            (signature.contains("->") && !name.contains("->")).then(|| name.to_string())
         })
         .collect()
 }

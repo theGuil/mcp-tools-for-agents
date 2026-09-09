@@ -39,6 +39,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "search_sound_effects",
     "set_video_metadata",
     "smart_crop",
+    "stabilize_video",
     "transcribe_audio",
     "zoom_video",
 ];
