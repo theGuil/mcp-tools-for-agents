@@ -2,22 +2,31 @@
   "permissions": {
     "defaultMode": "bypassPermissions",
     "allow": [
-      "mcp__mcp-tools-for-agents__get_video_info",
-      "mcp__mcp-tools-for-agents__download_video",
-      "mcp__mcp-tools-for-agents__job_status",
-      "mcp__mcp-tools-for-agents__job_result",
-      "mcp__mcp-tools-for-agents__probe_video",
-      "mcp__mcp-tools-for-agents__extract_frame",
-      "mcp__mcp-tools-for-agents__cut_video",
-      "mcp__mcp-tools-for-agents__extract_audio",
-      "mcp__mcp-tools-for-agents__transcribe_audio",
-      "mcp__mcp-tools-for-agents__apply_template",
-      "mcp__mcp-tools-for-agents__concat_videos",
-      "mcp__mcp-tools-for-agents__add_fade",
-      "mcp__mcp-tools-for-agents__export_for_platform",
-      "mcp__mcp-tools-for-agents__set_video_metadata"
+      "mcp__mcp-tools-for-agents",
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "NotebookEdit",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "Task",
+      "TodoWrite",
+      "SlashCommand",
+      "Skill"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/root/.cache/mcp-tools-for-agents"
     ]
   },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "mcp-tools-for-agents"
+  ],
+  "skipDangerousModePermissionPrompt": true,
   "hooks": {
     "SessionStart": [
       {
